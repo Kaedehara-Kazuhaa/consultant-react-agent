@@ -1,0 +1,12 @@
+{
+  "description":"合成开发数据，不是线上客户数据或dump统计结果",
+  "materials":[
+    {"id":"M0001","advertiser_id":"A1","brand_id":"B1","title":"品牌A春季素材","delivery_status":"DELIVERING","test_status":"PASSED","last_sync_at":"2026-03-26T10:00:00+08:00","report_last_sync_at":"2026-03-26T10:00:00+08:00"},
+    {"id":"M0002","advertiser_id":"A2","brand_id":"B2","title":"其他品牌素材","delivery_status":"STOPPED","test_status":"PASSED"}
+  ],
+  "daily":[
+    {"material_id":"M0001","advertiser_id":"A1","date":"2026-03-24","total_cost":"100.00","overall_gmv":"300.00"},
+    {"material_id":"M0001","advertiser_id":"A1","date":"2026-03-25","total_cost":"0.00","overall_gmv":"0.00"},
+    {"material_id":"M0001","advertiser_id":"A1","date":"2026-03-26","total_cost":null,"overall_gmv":"50.00"}
+  ]
+}

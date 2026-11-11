@@ -1,0 +1,4 @@
+[
+  {"id":"knowledge:roi:v1","keywords":["ROI","投产","怎么算"],"title":"整体支付ROI","content":"本示例口径：整体支付GMV / 消耗。区间汇总先分别累加GMV和消耗再计算，不平均逐日ROI。消耗为0时ROI不适用；任何必需值为NULL则不可完整计算。此口径为开发示例，上线前由业务确认。","version":"1"},
+  {"id":"knowledge:coverage:v1","keywords":["消耗","缺失","指标"],"title":"数据完整性","content":"无记录不代表数值为0；部分日期有记录时只能汇总已有记录并标注缺失；NULL不按0补齐。历史快照不能表述为当前实时状态。","version":"1"}
+]

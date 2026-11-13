@@ -1,8 +1,10 @@
 from dataclasses import dataclass
+from contextlib import closing
 import asyncio
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 import json
+import hashlib
 from pathlib import Path
 import sqlite3
 from pydantic import BaseModel, ConfigDict, Field
@@ -47,10 +49,27 @@ class Tool:
 
 class BusinessTools:
     """Fixed SQL templates only. No SQL or identity parameters are model-controlled."""
-    def __init__(self, fixture_path: Path, knowledge_dir: Path, business_db=""):
+    def __init__(self, fixture_path: Path, knowledge_dir: Path, business_db="", customer_context_file=""):
         self.fixtures = json.loads(fixture_path.read_text(encoding="utf-8"))
         self.knowledge_dir = knowledge_dir
         self.business_db = business_db
+        self.customer_context_file = customer_context_file
+        self.knowledge = []
+        for path in sorted(knowledge_dir.glob('*.json')):
+            if not path.resolve().is_relative_to(knowledge_dir.resolve()) or path.stat().st_size > 256_000:
+                raise ValueError('Invalid knowledge document path or size')
+            rows=json.loads(path.read_text(encoding='utf-8'))
+            if not isinstance(rows,list):
+                raise ValueError('Knowledge document must be an array')
+            for row in rows:
+                if not all(isinstance(row.get(k),str) and row[k] for k in ['id','title','content','version','source','scope','rule_type']) or not isinstance(row.get('assumption'),bool):
+                    raise ValueError('Knowledge entry is missing provenance metadata')
+                if not isinstance(row.get('keywords'),list) or not row['keywords'] or not all(isinstance(k,str) and k for k in row['keywords']):
+                    raise ValueError('Invalid knowledge keywords')
+            self.knowledge.extend(rows)
+        if len({r['id'] for r in self.knowledge}) != len(self.knowledge):
+            raise ValueError('Duplicate knowledge IDs')
+        self.knowledge_version=hashlib.sha256(json.dumps(self.knowledge,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
         self.registry = {
             t.name: t for t in [
                 Tool("search_knowledge", "检索业务指标定义与使用规则", Search, self.search),
@@ -65,7 +84,7 @@ class BusinessTools:
     def records(self, ctx: Context, material_id):
         if self.business_db:
             uri = Path(self.business_db).resolve().as_uri() + "?mode=ro"
-            with sqlite3.connect(uri, uri=True) as db:
+            with closing(sqlite3.connect(uri, uri=True)) as db:
                 db.row_factory = sqlite3.Row
                 placeholders = ",".join("?" for _ in ctx.accounts) or "NULL"
                 row = db.execute(f"SELECT id,advertiser_id,title,delivery_status,test_status,last_sync_at,report_last_sync_at FROM materials WHERE id=? AND advertiser_id IN ({placeholders})", (material_id, *ctx.accounts)).fetchone()
@@ -78,11 +97,12 @@ class BusinessTools:
 
     async def search(self, args: Search, ctx):
         hits = []
-        for path in sorted(self.knowledge_dir.glob("*.json")):
-            for row in json.loads(path.read_text(encoding="utf-8")):
-                if any(word.lower() in args.question.lower() for word in row["keywords"]):
-                    hits.append(row)
-        return Observation(status="OK" if hits else "EMPTY", data={"entries": hits[:3]}, evidence_refs=[r["id"] for r in hits[:3]])
+        for row in self.knowledge:
+            score = sum(len(word) for word in row["keywords"] if word.lower() in args.question.lower())
+            if score:
+                hits.append((score,row))
+        entries = [r for _,r in sorted(hits,key=lambda h:(-h[0],h[1]['id']))[:3]]
+        return Observation(status="OK" if entries else "EMPTY", data={"entries": entries}, evidence_refs=[r["id"] for r in entries])
 
     async def resolve(self, args: Material, ctx):
         material, _ = await asyncio.to_thread(self.records, ctx, args.material_id)
@@ -117,10 +137,34 @@ class BusinessTools:
         sums = {k: sum((Decimal(r[k]) for r in selected if r[k] is not None), Decimal(0)) for k in ["total_cost", "overall_gmv"]}
         roi = None if nulls or not sums["total_cost"] else str((sums["overall_gmv"]/sums["total_cost"]).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
         partial = bool(missing or nulls or "2026-03-27" in dates)
-        return Observation(status="PARTIAL" if partial else "OK", data={"material_id": args.material_id, "start_date": args.start_date, "end_date": args.end_date, "daily": selected, "known_total_cost": str(sums["total_cost"]), "known_overall_gmv": str(sums["overall_gmv"]), "roi": roi, "roi_note": "不可完整计算" if nulls else "不适用" if not sums["total_cost"] else "仅汇总已有记录" if partial else "完整记录", "missing_days": missing, "null_fields": nulls, "snapshot": "historical", "synthetic": not bool(self.business_db)}, evidence_refs=[f"daily:{args.material_id}:{d}" for d in dates])
+        return Observation(status="PARTIAL" if partial else "OK", data={"material_id": args.material_id, "start_date": args.start_date, "end_date": args.end_date, "daily": selected, "known_total_cost": str(sums["total_cost"].quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)), "known_overall_gmv": str(sums["overall_gmv"].quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)), "roi": roi, "roi_note": "不可完整计算" if nulls else "不适用" if not sums["total_cost"] else "仅汇总已有记录" if partial else "完整记录", "missing_days": missing, "null_fields": nulls, "snapshot": "historical", "synthetic": not bool(self.business_db)}, evidence_refs=[f"daily:{args.material_id}:{d}" for d in dates])
 
     async def customer_context(self, args, ctx):
-        # No invented telemetry: the ingestion interface can be added here later.
+        if self.customer_context_file:
+            rows = await asyncio.to_thread(lambda: json.loads(Path(self.customer_context_file).read_text(encoding="utf-8")))
+            candidates = []
+            for row in rows:
+                if row.get('customer_id') != ctx.customer_id or row.get('brand_id') != ctx.brand_id or row.get('advertiser_id') not in ctx.accounts:
+                    continue
+                try:
+                    occurred = datetime.fromisoformat(row['occurred_at'])
+                    age = (datetime.now(timezone.utc)-occurred).total_seconds()
+                    if occurred.tzinfo is None or not 0 <= age <= 86400:
+                        continue
+                    if row.get('kind') not in {'alert','view'} or (row['kind']=='alert' and row.get('status')!='open'):
+                        continue
+                    date.fromisoformat(row['start_date'])
+                    date.fromisoformat(row['end_date'])
+                    if not row.get('material_id') or row['start_date'] > row['end_date']:
+                        continue
+                except (ValueError, TypeError, KeyError):
+                    continue
+                candidates.append((row['kind']=='alert', occurred, row))
+            if candidates:
+                row = max(candidates,key=lambda r:(r[0],r[1]))[2]
+                suggestion = {k:row[k] for k in ['material_id','start_date','end_date']}
+                suggestion['query']='performance'
+                return Observation(status='OK',data={'suggestion':suggestion,'suggestion_expires_at':datetime.fromisoformat(row['occurred_at']).timestamp()+86400,'source_kind':row['kind'],'occurred_at':row['occurred_at'],'requires_confirmation':True},evidence_refs=['context:'+str(row['material_id'])])
         return Observation(status="EMPTY", data={"recent_views": [], "metric_alerts": [], "message": "未接入可核验的近期用户上下文，请用户补充需求"})
 
     async def handoff(self, args, ctx):

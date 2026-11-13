@@ -4,6 +4,7 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
+from contextlib import contextmanager
 
 SENSITIVE = re.compile(r"token|secret|password|api_key|authorization|cookie", re.I)
 
@@ -33,8 +34,14 @@ class TraceStore:
               PRIMARY KEY(request_id,seq));
             """)
 
+    @contextmanager
     def connect(self):
-        return sqlite3.connect(self.path, timeout=10)
+        db=sqlite3.connect(self.path, timeout=10)
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
 
     def claim(self, request_id, owner, fingerprint):
         with self.lock, self.connect() as db:

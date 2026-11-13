@@ -14,6 +14,7 @@ class Settings:
     api_key: str = ""
     api_token: str = ""
     business_db: str = ""
+    customer_context_file: str = ""
     max_actions: int = 6
     call_timeout: float = 30
     turn_timeout: float = 90
@@ -34,4 +35,5 @@ class Settings:
             base_url=os.getenv("MODEL_BASE_URL", ""), model=os.getenv("MODEL_NAME", ""),
             api_key=os.getenv("MODEL_API_KEY", ""), api_token=os.getenv("AGENT_API_TOKEN", ""),
             business_db=os.getenv("AGENT_BUSINESS_DB", ""),
+            customer_context_file=os.getenv("AGENT_CUSTOMER_CONTEXT_FILE", ""),
         )

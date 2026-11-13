@@ -10,13 +10,17 @@ from .documents import load_profile
 from .models import Decision, Observation, Request
 from .providers import CompatibleProvider, DemoProvider
 from .trace import TraceStore
+from .sessions import Sessions
+from .conversation import resolve_turn
 
 class Engine:
     def __init__(self, settings: Settings, business_tools, provider=None):
         self.settings = settings
         self.tools = business_tools.registry
+        self.knowledge_version = getattr(business_tools,'knowledge_version',None)
         self.profile = load_profile(settings.profile_dir, set(self.tools))
         self.store = TraceStore(settings.trace_db)
+        self.sessions = Sessions(settings.trace_db, lease=settings.turn_timeout+30)
         self.provider = provider or (DemoProvider() if settings.provider == "demo" else CompatibleProvider(settings) if settings.provider == "compatible" else self.invalid_provider())
 
     @staticmethod
@@ -24,6 +28,11 @@ class Engine:
         raise ValueError("AGENT_PROVIDER must be demo or compatible")
 
     async def run(self, request: Request, context):
+        owner = context.customer_id+":"+context.brand_id
+        with self.sessions.turn(owner, request.session_id, request.request_id) as previous:
+            return await self._run(request, context, previous)
+
+    async def _run(self, request, context, previous):
         if request.session_id != context.session_id:
             raise ValueError("Session context mismatch")
         owner = context.customer_id+":"+context.brand_id
@@ -33,11 +42,13 @@ class Engine:
             return cached
         rid = request.request_id
         started = time.monotonic()
-        skills = self.profile.select(request.message)
+        turn = resolve_turn(request.message, previous, context.business_day)
+        skills = self.profile.select(request.message, turn["intent"])
         permitted = set(self.profile.allowed_tools) & {t for s in skills for t in s.tools}
-        state = {"message": request.message, "context": asdict(context), "agent_document": self.profile.instructions, "skills": [{"name": s.name, "instructions": s.body} for s in skills], "tools": [self.tools[n].schema() for n in sorted(permitted)], "observations": [], "decision_error": None}
+        state = {"message": request.message, "turn": turn, "previous": previous, "context": asdict(context), "agent_document": self.profile.instructions, "skills": [{"name": s.name, "instructions": s.body} for s in skills], "tools": [self.tools[n].schema() for n in sorted(permitted)], "observations": [], "decision_error": None}
         self.store.emit(rid, "run_started", {"profile": self.profile.name, "profile_version": self.profile.digest, "mode": self.settings.provider, "context": asdict(context), "message": request.message})
-        self.store.emit(rid, "documents_loaded", {"skills": [{"name": s.name, "version": s.digest} for s in skills], "allowed_tools": sorted(permitted)})
+        self.store.emit(rid, "documents_loaded", {"skills": [{"name": s.name, "version": s.digest} for s in skills], "knowledge_version":self.knowledge_version, "allowed_tools": sorted(permitted)})
+        self.store.emit(rid, "context_resolved", turn)
         seen, evidence = set(), set()
         actions = 0
 
@@ -45,9 +56,16 @@ class Engine:
             result = {"request_id": rid, "session_id": request.session_id, "status": status, "response": response, "evidence_refs": list(refs), "actions": actions, "mode": self.settings.provider, "profile_version": self.profile.digest, "stop_reason": reason, "elapsed_ms": round((time.monotonic()-started)*1000)}
             self.store.emit(rid, "run_finished", result)
             self.store.finish(rid, result)
+            suggestion = next((o['observation']['data'].get('suggestion') for o in state['observations'] if o['tool']=='get_customer_context'),None)
+            suggestion_expires_at = next((o['observation']['data'].get('suggestion_expires_at',0) for o in state['observations'] if o['tool']=='get_customer_context'),0)
+            is_feedback = turn['intent']=='feedback'
+            self.sessions.save(owner, request.session_id, {"intent":previous.get('intent') if is_feedback else turn["intent"], "slots":previous.get('slots',{}) if is_feedback else turn["slots"], "suggestion":suggestion, "suggestion_expires_at":suggestion_expires_at, "hypothesis_attempted":bool(suggestion or (turn['intent']=='clarify' and previous.get('hypothesis_attempted'))), "last_status":status, "last_request_id":rid})
             return result
 
         try:
+            if turn["intent"] == "feedback":
+                confirmed = previous.get("last_status") == "ANSWERED_WAITING"
+                return finish("CONFIRMED_RESOLVED" if confirmed else "COLLECTING", "已记录：您确认上一问题已解决。" if confirmed else "请先说明您需要处理的具体问题。", reason="EXPLICIT_FEEDBACK" if confirmed else "NO_PENDING_ANSWER")
             async with asyncio.timeout(self.settings.turn_timeout):
                 while True:
                     decision = None
@@ -96,7 +114,10 @@ class Engine:
                     for attempt in range(self.settings.retries+1):
                         try:
                             async with asyncio.timeout(self.settings.call_timeout):
-                                obs = await tool.handler(args, context)
+                                if tool.name=='get_customer_context' and previous.get('hypothesis_attempted') and turn['intent']=='clarify':
+                                    obs = Observation(status='EMPTY',data={'message':'此前已提出候选问题，请用户主动说明具体需求'})
+                                else:
+                                    obs = await tool.handler(args, context)
                         except TimeoutError:
                             obs = Observation(status="ERROR", error_code="TOOL_TIMEOUT", retryable=True)
                         except Exception as exc:

@@ -1,5 +1,7 @@
 # 品牌投放客服 ReAct 架构
 
+仓库名称：`consultant-react-agent`。文档入口：[架构与边界](docs/architecture.md)、[工具合同](docs/tool-contracts.md)、[Skill维护](docs/skill-authoring.md)、[运行排障](docs/runbook.md)、[链路验收](docs/acceptance.md)。
+
 根据 [PRD](https://wcnendova4rf.feishu.cn/docx/DHaDdkHSHogqKfx1ymXch6zrnmU) 的文档体系及执行循环搭建的可运行框架。此处 ReAct 指推理与行动循环，页面使用原生 HTML，尚未引入 React 前端。
 
 ## 本地运行
@@ -42,6 +44,8 @@ profiles/default/
   skills/knowledge/SKILL.md  规则和指标查询步骤
   skills/material/SKILL.md   素材数据查询步骤
   skills/clarify/SKILL.md    模糊进线与单一假设确认
+  skills/diagnose/SKILL.md   数据异议与纠错
+  skills/feedback/SKILL.md   明确反馈与解决边界
   skills/handoff/SKILL.md    人工策略扩展点约束
   knowledge/metrics.json    带版本和引用编号的业务知识示例
 ```
@@ -51,13 +55,13 @@ Agent 文件示例：
 ```yaml
 ---
 name: my-agent
-skills: [knowledge, material, clarify, handoff]
+skills: [knowledge, material, clarify, diagnose, feedback, handoff]
 tools: [search_knowledge, resolve_material, get_material_status, get_material_daily_performance, get_customer_context, handoff_record]
 ---
 此处写角色、约束及回答标准。
 ```
 
-Skill 文件必须有 `name`、`description`、`triggers`、`tools` 的 YAML 头，正文写执行步骤。Skill name 与目录相同；tools 只能是 Agent 允许且代码已注册的工具。文档属于部署配置，普通用户不能上传文档修改运行权限；Skill 不能执行任意脚本。每份文档最大64KB，最多20个技能。当前使用关键词路由，未命中走 clarify；新增技能需要设置准确的触发词，复杂语义路由可替换 `Profile.select`。
+Skill 文件必须有 `name`、`description`、`triggers`、`tools` 的 YAML 头，正文写执行步骤。Skill name 与目录相同；tools 只能是 Agent 允许且代码已注册的工具。文档属于部署配置，普通用户不能上传文档修改运行权限；Skill 不能执行任意脚本。每份文档最大64KB，最多20个技能。当前结合保守意图解析、槽位续接和关键词路由，未命中走 clarify；新增技能需要设置准确的触发词，复杂语义路由可替换 `Profile.select`。
 
 复制 profile 目录后设置 `$env:AGENT_PROFILE_DIR="D:\your-profile"`，重启服务生效。Trace 保存加载的文档哈希，以便复现。真实模型会读取 Agent 和选中 Skill 的正文。知识目前是关键词检索的 JSON 接口，可替换为带权限和版本信息的 RAG 检索器。
 
@@ -77,7 +81,7 @@ $env:AGENT_API_TOKEN="your-local-api-token"
 
 默认 `fixtures/business.json` 是明确标注的合成数据。设置 `AGENT_BUSINESS_DB` 可切换到由 dump 提取的 SQLite，只读连接，要求含 `materials` 和 `material_daily_trend_cache` 的对应字段；不是直接读取 PostgreSQL `.dump`。SQL 模板固定，素材与日报均限定服务端提供的 advertiser_id。真实账号身份映射尚需接入；当前 Web/CLI 使用固定演示身份 B1/A1，因此不能直接作为多客户生产服务。
 
-`get_customer_context` 当前返回无可用后台行为数据；`handoff_record` 当前明确返回策略未接入，不生成虚假交接记录。对话当天基准日由服务端按 Asia/Shanghai 生成，历史示例查询请使用示例日期。
+`get_customer_context` 默认返回空，也支持通过 `AGENT_CUSTOMER_CONTEXT_FILE` 接入受信后台记录，筛选新鲜且授权的一项候选并等待确认；`handoff_record` 当前明确返回策略未接入，不生成虚假交接记录。对话当天基准日由服务端按 Asia/Shanghai 生成，历史示例查询请使用示例日期。
 
 ## Trace 内容
 
@@ -86,6 +90,7 @@ $env:AGENT_API_TOKEN="your-local-api-token"
 | 事件 | 主要内容 |
 |---|---|
 | run_started / documents_loaded | 输入、受信上下文、模式、Agent/Skill 版本、允许的工具 |
+| context_resolved | 意图、绝对日期槽位、继承与人工请求标记 |
 | plan_started / decision | 迭代、重试次数、决策摘要、所选 Action、耗时 |
 | action | 工具名称及校验后的参数 |
 | observation | OK/PARTIAL/EMPTY/ERROR、结果、依据编号、耗时 |
@@ -103,8 +108,10 @@ $env:AGENT_API_TOKEN="your-local-api-token"
 
 已实现文档加载/校验/版本标记、技能匹配、ReAct 工具循环、规则检索、授权素材查询、精确金额计算、Trace 持久化与导出、模型适配器及最小调试页。回答引用校验检查引用是否真实来自工具，不能代替答案语义正确性评测。
 
-这是支持继续实现 PRD 的架构基础，不是完整业务交付。`session_id` 当前仅作标识，不恢复跨轮记忆；后续在 engine 输入前加载会话状态。真实用户画像与单一问题假设确认接 `get_customer_context`；约3次有效解决尝试、历史转人工资格、交接记录接服务端持久化策略与 `handoff_record`；问题确认解决/静默窗口/同问题重开接独立会话状态机。现有循环预算不能当作人工拦截次数。真实知识库与账号映射、净ROI口径、多轮评测集需要继续接入。
+这是支持继续实现 PRD 的架构基础，不是完整业务交付。`session_id` 现支持用户+品牌+线程隔离的槽位、候选和最后回答状态持久化，30分钟无交互后过期；基础明确反馈可确认上一回答。完整多事项关系与真实行为平台仍需接入；约3次有效解决尝试、历史转人工资格、交接记录接服务端持久化策略与 `handoff_record`；静默窗口、跨会话同问题重开和计数撤销仍需接独立事项状态机。现有循环预算不能当作人工拦截次数。真实知识库与账号映射、净ROI口径、多轮评测集需要继续接入。
 
 测试命令：`..\.venv\Scripts\python.exe -m pytest -q`。测试覆盖业务分支、零值/NULL/缺失、越权与参数、循环预算、重试超时、文档修改、伪造引用、幂等、Trace隔离、模型协议与HTTP/SSE。
 
-目前未初始化或推送 GitHub。根目录 `.gitignore` 已排除 dump、数据库、运行日志、虚拟环境与 `.env`；以后同步时应仅选代码和示例文档，勿将现有业务资料整目录提交。
+已建立 GitHub 远程仓库 `consultant-react-agent`，项目修改按检查与同步→修改验证→提交→推送执行。根目录 `.gitignore` 已排除 dump、数据库、运行日志、虚拟环境与 `.env`；以后同步时应仅选代码和示例文档，勿将现有业务资料整目录提交。
+
+离线链路验收：`..\.venv\Scripts\python.exe -m ad_agent.evals`，使用固定日期与合成数据验证10个场景、22轮连续交互；报告保存在 `var/eval_report.json`。

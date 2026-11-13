@@ -1,4 +1,345 @@
 [
-  {"id":"knowledge:roi:v1","keywords":["ROI","投产","怎么算"],"title":"整体支付ROI","content":"本示例口径：整体支付GMV / 消耗。区间汇总先分别累加GMV和消耗再计算，不平均逐日ROI。消耗为0时ROI不适用；任何必需值为NULL则不可完整计算。此口径为开发示例，上线前由业务确认。","version":"1"},
-  {"id":"knowledge:coverage:v1","keywords":["消耗","缺失","指标"],"title":"数据完整性","content":"无记录不代表数值为0；部分日期有记录时只能汇总已有记录并标注缺失；NULL不按0补齐。历史快照不能表述为当前实时状态。","version":"1"}
+  {
+    "id": "knowledge:roi:v1",
+    "keywords": [
+      "ROI",
+      "投产",
+      "怎么算"
+    ],
+    "title": "整体支付ROI",
+    "content": "整体ROI=区间整体GMV合计÷区间消耗合计；先汇总再相除，不平均逐日ROI。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:cost:v1",
+    "keywords": [
+      "消耗",
+      "花费"
+    ],
+    "title": "消耗口径",
+    "content": "展示查询范围内已有消耗记录；缺失记录不能当作零。金额暂按人民币元，需业务确认。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:gmv:v1",
+    "keywords": [
+      "GMV",
+      "成交金额"
+    ],
+    "title": "整体GMV",
+    "content": "使用整体GMV字段，不与净成交、退款后GMV混用。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:zero:v1",
+    "keywords": [
+      "零消耗",
+      "消耗为0",
+      "为什么是0"
+    ],
+    "title": "零消耗解释",
+    "content": "消耗为0时整体ROI不适用。仅凭零消耗不能判断预算不足、审核失败或未投放。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:null:v1",
+    "keywords": [
+      "NULL",
+      "空值"
+    ],
+    "title": "空值处理",
+    "content": "必需指标为NULL时不可完整计算ROI；展示已知值并标注空值，不补零。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:missing:v1",
+    "keywords": [
+      "无记录",
+      "缺失"
+    ],
+    "title": "无日报记录",
+    "content": "无记录与真实零值不同；提示日期覆盖和补充日期，不生成零值结论。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:partial:v1",
+    "keywords": [
+      "部分",
+      "覆盖"
+    ],
+    "title": "部分日期覆盖",
+    "content": "区间有缺失天数时仅汇总已有记录，标注缺失与部分覆盖，不冒充完整区间。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:date:v1",
+    "keywords": [
+      "日期",
+      "昨天",
+      "前天"
+    ],
+    "title": "日期基准",
+    "content": "相对日期按消息接收当天Asia/Shanghai换算，显示绝对日期。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:week:v1",
+    "keywords": [
+      "近7天",
+      "最近七天"
+    ],
+    "title": "近7天定义",
+    "content": "近7天指当天之前的7个完整自然日，不含当天。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:range:v1",
+    "keywords": [
+      "区间",
+      "31天"
+    ],
+    "title": "查询区间",
+    "content": "单次查询支持最多31天闭区间；不静默截断，超范围请拆分日期。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:snapshot:v1",
+    "keywords": [
+      "实时",
+      "同步",
+      "快照"
+    ],
+    "title": "快照时效",
+    "content": "数据是查询快照，展示同步时间；不能表述为当前实时投放状态。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:state:v1",
+    "keywords": [
+      "投放状态",
+      "在投"
+    ],
+    "title": "素材状态",
+    "content": "投放状态与测试状态分别展示；未知枚举保留原值，不凭名称猜测业务含义。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:how_cost:v1",
+    "keywords": [
+      "怎么查消耗",
+      "如何查消耗",
+      "怎么查达人消耗"
+    ],
+    "title": "查询消耗用法",
+    "content": "当前可按单素材编号和日期查询消耗、整体GMV与整体ROI。请提供素材编号和日期；达人汇总需转为明确的单素材查询。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:how_status:v1",
+    "keywords": [
+      "怎么查状态",
+      "如何查状态"
+    ],
+    "title": "查询状态用法",
+    "content": "提供明确素材编号后，在授权范围确认素材并读取状态与同步时间。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:ids:v1",
+    "keywords": [
+      "编号",
+      "ID类型"
+    ],
+    "title": "编号类型",
+    "content": "业务素材主键、平台素材编号、视频编号和账户编号不能互换；当前实现仅接受业务素材主键。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:permissions:v1",
+    "keywords": [
+      "权限",
+      "其他品牌"
+    ],
+    "title": "访问范围",
+    "content": "每次工具查询使用服务端账户范围；无权限和不存在统一提示当前范围未找到。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:correction:v1",
+    "keywords": [
+      "纠错",
+      "数不对",
+      "数据异议"
+    ],
+    "title": "数据复核",
+    "content": "复核素材、账户、绝对日期、口径和同步时间；用户只改日期时保留明确素材，重新查询而不复用旧数值。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:feedback:v1",
+    "keywords": [
+      "解决",
+      "反馈"
+    ],
+    "title": "解决确认",
+    "content": "有效答复后明确肯定才确认解决；否定、讽刺、拒转和工具失败不算解决。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:silence:v1",
+    "keywords": [
+      "24小时",
+      "静默"
+    ],
+    "title": "静默认定规则",
+    "content": "有效答复后24小时无同事项追问才可推定解决；同事项质疑需撤销当前认定并重开。当前尚未实现后台静默调度。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:handoff:v1",
+    "keywords": [
+      "人工",
+      "转人工"
+    ],
+    "title": "人工处理策略",
+    "content": "普通人工请求优先尝试解决具体问题；最多3次有效推进后按冻结历史资格托底。故障重试和重复脚本不计有效尝试。当前交接策略接口尚未接通。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:history:v1",
+    "keywords": [
+      "历史转人工",
+      "30天"
+    ],
+    "title": "历史资格",
+    "content": "会话开始前30天历史去重请求累计至少3次时限制普通转接；本会话资格冻结，当前请求影响后续会话。当前资格持久化尚未实现。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:exclusive:v1",
+    "keywords": [
+      "审批",
+      "预算调整",
+      "修改投放"
+    ],
+    "title": "人工专属事项",
+    "content": "预算调整、投放修改和权限审批不能由查询工具执行，应生成独立人工专属事项；当前尚未接入专属事项记录。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:net:v1",
+    "keywords": [
+      "净ROI",
+      "退款"
+    ],
+    "title": "净ROI",
+    "content": "净ROI不能直接套用整体ROI；未接入对应净成交口径与字段时，不返回代算数值。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  },
+  {
+    "id": "knowledge:multi:v1",
+    "keywords": [
+      "批量",
+      "排行"
+    ],
+    "title": "查询支持范围",
+    "content": "当前实现是单素材查询；批量和排行请先拆分成单素材条件，不伪造聚合结果。",
+    "scope": "品牌方投手客服；单素材查询",
+    "source": "项目PRD V1.2 及显式开发假设",
+    "version": "1",
+    "rule_type": "项目约定，非外部平台官方规则",
+    "assumption": true
+  }
 ]

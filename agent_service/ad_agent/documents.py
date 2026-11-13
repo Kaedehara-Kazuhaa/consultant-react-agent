@@ -20,8 +20,15 @@ class Profile:
     allowed_tools: frozenset[str]
     digest: str
 
-    def select(self, message: str) -> tuple[Skill, ...]:
+    def select(self, message: str, intent: str | None = None) -> tuple[Skill, ...]:
         chosen = tuple(s for s in self.skills if any(t.lower() in message.lower() for t in s.triggers))
+        # Intent routing includes date-only continuations that have no lexical trigger.
+        names = {s.name for s in chosen} | {intent}
+        if intent == "material" and any(w in message for w in ["不对", "有误", "没解决", "为什么是0"]):
+            names.add("diagnose")
+        if intent == "feedback":
+            names.add("feedback")
+        chosen = tuple(s for s in self.skills if s.name in names)
         # Missing lexical match still has a bounded general clarification skill.
         return chosen or tuple(s for s in self.skills if s.name == "clarify")
 
@@ -51,6 +58,8 @@ def load_profile(root: Path, registered_tools: set[str]) -> Profile:
     if not allowed <= registered_tools:
         raise ValueError("Agent document names unregistered tools")
     enabled = strings(meta, "skills")
+    if len(enabled) != len(set(enabled)):
+        raise ValueError("Duplicate skill names")
     skills = []
     for name in enabled:
         if not name.replace("_", "").replace("-", "").isalnum():

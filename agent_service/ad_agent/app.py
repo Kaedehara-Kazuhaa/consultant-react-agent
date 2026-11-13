@@ -11,7 +11,7 @@ from .models import Request
 from .tools import BusinessTools, Context
 
 def build_engine(settings):
-    return Engine(settings, BusinessTools(ROOT / "fixtures/business.json", settings.profile_dir / "knowledge", settings.business_db))
+    return Engine(settings, BusinessTools(ROOT / "fixtures/business.json", settings.profile_dir / "knowledge", settings.business_db, settings.customer_context_file))
 
 def create_app(settings=None, engine=None):
     settings = settings or Settings.from_env()

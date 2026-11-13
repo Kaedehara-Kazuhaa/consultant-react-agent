@@ -1,0 +1,44 @@
+[
+  {"name":"日期补充与纠错","turns":[
+    {"message":"你好，查素材M0001消耗","status":"COLLECTING","tools":["resolve_material"],"contains":["日期"]},
+    {"message":"2026-03-24","status":"ANSWERED_WAITING","tools":["resolve_material","get_material_daily_performance"],"contains":["3.00","100.00"]},
+    {"message":"不对，改成2026-03-25","status":"ANSWERED_WAITING","tools":["resolve_material","get_material_daily_performance"],"contains":["不适用"]},
+    {"message":"明白了","status":"CONFIRMED_RESOLVED","tools":[],"contains":["确认"]}
+  ]},
+  {"name":"规则与用法","turns":[
+    {"message":"ROI怎么算","status":"ANSWERED_WAITING","tools":["search_knowledge"],"contains":["合计","项目约定"]},
+    {"message":"怎么查达人消耗","status":"ANSWERED_WAITING","tools":["search_knowledge"],"contains":["单素材"]}
+  ]},
+  {"name":"状态授权","turns":[
+    {"message":"素材M0001在投吗","status":"ANSWERED_WAITING","tools":["resolve_material","get_material_status"],"contains":["历史快照","DELIVERING"]},
+    {"message":"素材M0002状态","status":"COLLECTING","tools":["resolve_material"],"contains":["当前可查询范围"]}
+  ]},
+  {"name":"缺失和空值","turns":[
+    {"message":"素材M0001 2026-03-23 ROI","status":"COLLECTING","tools":["resolve_material","get_material_daily_performance"],"contains":["无记录"]},
+    {"message":"2026-03-26","status":"ANSWERED_WAITING","tools":["resolve_material","get_material_daily_performance"],"contains":["不可完整计算","NULL"]}
+  ]},
+  {"name":"部分覆盖","turns":[
+    {"message":"素材M0001 2026-03-23至2026-03-24 ROI","status":"ANSWERED_WAITING","tools":["resolve_material","get_material_daily_performance"],"contains":["缺失 1 天","仅汇总已有记录"]}
+  ]},
+  {"name":"模糊进线不虚构","turns":[
+    {"message":"你好","status":"COLLECTING","tools":["get_customer_context"],"contains":["请说明"]},
+    {"message":"明白了","status":"COLLECTING","tools":[],"contains":["具体问题"]}
+  ]},
+  {"name":"先解决业务","turns":[
+    {"message":"转人工，查M0001 2026-03-24 ROI","status":"ANSWERED_WAITING","tools":["resolve_material","get_material_daily_performance"],"contains":["3.00"]},
+    {"message":"转人工","status":"UNRESOLVED","tools":["handoff_record"],"contains":["未生成交接记录"]}
+  ]},
+  {"name":"相对日期与跨话题","turns":[
+    {"message":"素材M0001昨天消耗","status":"ANSWERED_WAITING","tools":["resolve_material","get_material_daily_performance"],"contains":["2026-03-25"]},
+    {"message":"前天呢","status":"ANSWERED_WAITING","tools":["resolve_material","get_material_daily_performance"],"contains":["2026-03-24"]},
+    {"message":"ROI怎么算","status":"ANSWERED_WAITING","tools":["search_knowledge"],"contains":["合计"]},
+    {"message":"昨天呢","status":"COLLECTING","tools":["get_customer_context"],"contains":["请说明"]}
+  ]},
+  {"name":"不任意选对象或日期","turns":[
+    {"message":"素材M0001和M0002昨天表现","status":"COLLECTING","tools":[],"contains":["一个"]},
+    {"message":"素材M0001 2026-03-23 2026-03-24 2026-03-25","status":"COLLECTING","tools":[],"contains":["区间"]}
+  ]},
+  {"name":"不冒充净ROI","turns":[
+    {"message":"素材M0001 2026-03-24净ROI","status":"ANSWERED_WAITING","tools":["search_knowledge"],"contains":["净ROI","不能"]}
+  ]}
+]

@@ -8,6 +8,9 @@ draft*_folder/
 *.sqlite*
 *.db
 .env
+.env.*
+!.env.example
+*.log
 __pycache__/
 .pytest_cache/
 *.egg-info/

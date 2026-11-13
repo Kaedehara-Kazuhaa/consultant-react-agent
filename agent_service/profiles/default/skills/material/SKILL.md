@@ -11,7 +11,7 @@ tools: [resolve_material, get_material_status, get_material_daily_performance]
 5. EMPTY 不等于零；PARTIAL 明确缺失天数；NULL 不填零。回答引用工具返回的 evidence_refs。
 
 ## 输入条件
-必须有明确业务素材主键；表现查询还需起止绝对日期。状态查询不强求日期。当前 Demo 的编号形如 M0001，中文紧贴编号也应识别；标题重名、平台ID转换和候选分页尚待工具接入，不能编造候选。
+必须有明确业务素材主键；表现查询还需起止绝对日期。状态查询不强求日期。合成数据编号形如M0001，dump业务主键为数字（如“素材123”），中文紧贴编号也应识别；标题重名、平台ID转换和候选分页尚待工具接入，不能编造候选。
 
 ## Observation 分支
 resolve_material EMPTY：统一提示当前范围未找到，要求核对编号，不揭示其他品牌是否存在。日报 EMPTY：提示无记录及可用日期，不默默切换日期。PARTIAL：区分缺失天数与NULL，注明仅汇总已有记录。ERROR：不基于旧结果生成新结论。

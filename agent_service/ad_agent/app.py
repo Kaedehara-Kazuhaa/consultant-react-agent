@@ -3,8 +3,9 @@ from zoneinfo import ZoneInfo
 import asyncio
 import hmac
 import json
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from .config import ROOT, Settings
 from .engine import Engine
 from .models import Request
@@ -18,26 +19,41 @@ def create_app(settings=None, engine=None):
     engine = engine or build_engine(settings)
     app = FastAPI(title="广告业务 ReAct 调试服务", version="0.1.0")
     app.state.engine = engine
+    frontend=ROOT/'frontend/dist'
+    if (frontend/'assets').exists():
+        app.mount('/assets',StaticFiles(directory=frontend/'assets'),name='assets')
 
     def auth(authorization):
         if settings.api_token and not hmac.compare_digest(authorization or "", "Bearer "+settings.api_token):
             raise HTTPException(401, "Invalid API token")
         # This scaffold intentionally exposes one deployment-owned demo identity only.
         # Production authentication must replace this with verified business login claims.
-        if settings.provider != "demo" and not settings.api_token:
+        if settings.provider not in {"demo", "codex"} and not settings.api_token:
             raise HTTPException(503, "Configure AGENT_API_TOKEN before using a real provider")
-        return "demo-operator:B1"
+        return settings.customer_id+':'+settings.brand_id
 
     def context(session_id):
-        return Context("demo-operator", "B1", ("A1",), datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat(), session_id)
+        return Context(settings.customer_id, settings.brand_id, settings.accounts, datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat(), session_id)
+
+    @app.middleware('http')
+    async def local_codex_only(request,call_next):
+        if settings.provider=='codex' and request.client and request.client.host not in {'127.0.0.1','::1','localhost','testclient'}:
+            from fastapi.responses import JSONResponse
+            return JSONResponse({'detail':'Codex adapter is local-only'},status_code=403)
+        return await call_next(request)
 
     @app.get("/")
     async def page():
-        return FileResponse(ROOT / "web/index.html")
+        return FileResponse(frontend/'index.html' if (frontend/'index.html').exists() else ROOT/'web/index.html')
 
     @app.get("/health")
     async def health():
-        return {"status": "ok", "provider": settings.provider, "profile": engine.profile.name, "identity_mode": "single_demo_identity", "trace_semantics": "decision_summary_not_hidden_reasoning"}
+        return {"status": "ok", "provider": settings.provider, "profile": engine.profile.name, "identity_mode": "local_snapshot_viewer" if settings.business_db else "single_demo_identity", "data_mode":"dump_snapshot" if settings.business_db else "synthetic", "trace_semantics": "decision_summary_not_hidden_reasoning"}
+
+    @app.get('/api/materials')
+    async def materials(q:str=Query(default='',max_length=200),page:int=Query(default=1,ge=1,le=1000000),authorization:str|None=Header(default=None)):
+        auth(authorization)
+        return await asyncio.to_thread(engine.catalog,context('catalog'),q,page)
 
     @app.post("/api/run")
     async def run(request: Request, authorization: str | None = Header(default=None)):

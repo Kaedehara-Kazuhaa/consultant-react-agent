@@ -13,7 +13,7 @@
 | sessions.py | 用户+品牌+线程隔离的槽位存储、30分钟过期及执行互斥 | 非完整PRD事项账本或冻结资格服务 |
 | engine.py | ReAct、工具校验、预算、引用检查、反馈状态与Trace | 不输出隐藏思维链，不证明语义正确性 |
 | tools.py | 固定参数接口、实时范围校验、查询、Decimal计算 | 不执行模型生成的SQL，不修改投放 |
-| providers.py | 确定性演示或兼容模型的结构化决策 | Demo不是模型效果评测 |
+| providers.py / codex_provider.py | 固定规则、兼容API或本地账号CLI的结构化决策 | Demo不是模型；Codex尚未登录实测 |
 | trace.py | 事件持久化、重放、脱敏及请求幂等 | 不是公开的业务数据共享渠道 |
 
 ## 执行顺序

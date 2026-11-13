@@ -12,20 +12,22 @@ from .providers import CompatibleProvider, DemoProvider
 from .trace import TraceStore
 from .sessions import Sessions
 from .conversation import resolve_turn
+from .codex_provider import CodexProvider
 
 class Engine:
     def __init__(self, settings: Settings, business_tools, provider=None):
         self.settings = settings
         self.tools = business_tools.registry
+        self.catalog = business_tools.catalog
         self.knowledge_version = getattr(business_tools,'knowledge_version',None)
         self.profile = load_profile(settings.profile_dir, set(self.tools))
         self.store = TraceStore(settings.trace_db)
         self.sessions = Sessions(settings.trace_db, lease=settings.turn_timeout+30)
-        self.provider = provider or (DemoProvider() if settings.provider == "demo" else CompatibleProvider(settings) if settings.provider == "compatible" else self.invalid_provider())
+        self.provider = provider or (DemoProvider() if settings.provider == "demo" else CompatibleProvider(settings) if settings.provider == "compatible" else CodexProvider(settings) if settings.provider=='codex' else self.invalid_provider())
 
     @staticmethod
     def invalid_provider():
-        raise ValueError("AGENT_PROVIDER must be demo or compatible")
+        raise ValueError("AGENT_PROVIDER must be demo, compatible or codex")
 
     async def run(self, request: Request, context):
         owner = context.customer_id+":"+context.brand_id

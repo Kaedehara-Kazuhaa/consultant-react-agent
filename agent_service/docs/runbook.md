@@ -1,5 +1,7 @@
 # 本地运行、排障与回归
 
+日常使用根目录启动项目.cmd，不需要每次安装。新前端、数据切换和模型方式见[快速使用](quickstart.md)。以下安装命令只用于首次准备或依赖变化。
+
 仓库：consultant-react-agent。执行目录为`D:\cst_proj\agent_service`。
 
 ```powershell

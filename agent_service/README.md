@@ -1,10 +1,12 @@
 # 品牌投放客服 ReAct 架构
 
+**日常查看：双击根目录“启动项目.cmd”，无需重复安装。** 当前已增加React前端和dump只读快照；[快速使用](docs/quickstart.md)、[模型接入](docs/model-access.md)、[指标口径](docs/metrics.md)。
+
 仓库名称：`consultant-react-agent`。文档入口：[架构与边界](docs/architecture.md)、[工具合同](docs/tool-contracts.md)、[Skill维护](docs/skill-authoring.md)、[运行排障](docs/runbook.md)、[链路验收](docs/acceptance.md)。
 
-根据 [PRD](https://wcnendova4rf.feishu.cn/docx/DHaDdkHSHogqKfx1ymXch6zrnmU) 的文档体系及执行循环搭建的可运行框架。此处 ReAct 指推理与行动循环，页面使用原生 HTML，尚未引入 React 前端。
+根据 [PRD](https://wcnendova4rf.feishu.cn/docx/DHaDdkHSHogqKfx1ymXch6zrnmU) 的文档体系及执行循环搭建的可运行框架。ReAct指推理与行动循环；前端现使用React + Vite，后端FastAPI提供API及构建后的静态页面。
 
-## 本地运行
+## 首次安装及开发命令（非每次启动）
 
 在 PowerShell 中：
 
@@ -15,7 +17,7 @@ cd D:\cst_proj\agent_service
 ..\.venv\Scripts\python.exe -m uvicorn ad_agent.app:create_app --factory --host 127.0.0.1 --port 8765
 ```
 
-打开 http://127.0.0.1:8765 。默认不需要模型密钥，使用确定性 DemoProvider 和合成业务数据，可查看执行 Trace 并导出 JSONL。DemoProvider 用于验证架构，不是语言模型，也不会因修改文案自动学习新的业务推理。
+日常使用根目录Start.cmd；首次新环境用Setup.cmd安装Python依赖并构建React。根目录启动器检测到本地数据配置时默认使用dump快照，直接运行uvicorn则遵循环境配置。打开 http://127.0.0.1:8765 。默认不需要模型密钥，使用确定性 DemoProvider；示例命令不指定dump时使用合成业务数据，可查看执行 Trace 并导出 JSONL。DemoProvider 用于验证架构，不是语言模型，也不会因修改文案自动学习新的业务推理。
 
 ## 执行链路
 

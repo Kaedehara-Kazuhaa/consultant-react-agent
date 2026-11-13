@@ -104,6 +104,28 @@ class BusinessTools:
         entries = [r for _,r in sorted(hits,key=lambda h:(-h[0],h[1]['id']))[:3]]
         return Observation(status="OK" if entries else "EMPTY", data={"entries": entries}, evidence_refs=[r["id"] for r in entries])
 
+    def catalog(self,ctx,q='',page=1):
+        size=20
+        if self.business_db:
+            with closing(sqlite3.connect(Path(self.business_db).resolve().as_uri()+'?mode=ro',uri=True)) as db:
+                db.row_factory=sqlite3.Row
+                marks=','.join('?' for _ in ctx.accounts) or 'NULL'
+                where=f'm.advertiser_id IN ({marks}) AND (m.id=? OR m.title LIKE ?)'
+                args=(*ctx.accounts,q,'%'+q+'%')
+                total=db.execute(f'SELECT COUNT(*) FROM materials m WHERE {where}',args).fetchone()[0]
+                rows=[dict(r) for r in db.execute(f'''SELECT m.id,m.title,m.delivery_status,
+                  MIN(d.date) AS start_date,MAX(d.date) AS end_date,COUNT(d.date) AS report_days
+                  FROM materials m LEFT JOIN material_daily_trend_cache d ON d.material_id=m.id AND d.advertiser_id=m.advertiser_id
+                  WHERE {where} GROUP BY m.id,m.advertiser_id ORDER BY COUNT(d.date) DESC,m.id LIMIT ? OFFSET ?''',(*args,size,(page-1)*size))]
+        else:
+            all_rows=[]
+            for m in self.fixtures['materials']:
+                if m['advertiser_id'] not in ctx.accounts or (q and q not in m['id'] and q not in m.get('title','')):continue
+                days=sorted(r['date'] for r in self.fixtures['daily'] if r['material_id']==m['id'] and r['advertiser_id'] in ctx.accounts)
+                all_rows.append({**{k:m.get(k) for k in ['id','title','delivery_status']},'start_date':days[0] if days else None,'end_date':days[-1] if days else None,'report_days':len(days)})
+            total=len(all_rows); rows=all_rows[(page-1)*size:page*size]
+        return {'items':rows,'total':total,'page':page,'page_size':size,'data_mode':'dump_snapshot' if self.business_db else 'synthetic','brand_id':ctx.brand_id,'account_count':len(ctx.accounts)}
+
     async def resolve(self, args: Material, ctx):
         material, _ = await asyncio.to_thread(self.records, ctx, args.material_id)
         if not material:

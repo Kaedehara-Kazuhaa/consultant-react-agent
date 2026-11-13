@@ -8,7 +8,7 @@ class Decision(BaseModel):
     tool_name: str | None = None
     arguments: dict[str, Any] = Field(default_factory=dict)
     response: str | None = Field(default=None, max_length=4000)
-    evidence_refs: list[str] = Field(default_factory=list, max_length=30)
+    evidence_refs: list[str] = Field(default_factory=list, max_length=64)
 
     @model_validator(mode="after")
     def validate_action(self):

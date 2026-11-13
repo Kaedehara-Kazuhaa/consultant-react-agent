@@ -4,6 +4,7 @@ import re
 import time
 
 MATERIAL = re.compile(r"(?<![A-Za-z0-9])M\d{4}(?![A-Za-z0-9])", re.I)
+NUMERIC_ID = re.compile(r'(?:素材(?:编号|ID|id)?\s*[:：#]?\s*)(\d{1,20})(?![\d-])')
 POSITIVE = {"明白了", "解决了", "已解决", "谢谢解决了", "可以了"}
 NEGATIVE = ("不对", "没解决", "未解决", "还是不行", "有误", "为什么是0")
 
@@ -15,6 +16,7 @@ def resolve_turn(message, previous, business_day):
     slots = dict(previous.get("slots", {}))
     old_intent = previous.get("intent")
     explicit_ids = list(dict.fromkeys(m.upper() for m in MATERIAL.findall(text)))
+    explicit_ids += [m for m in NUMERIC_ID.findall(text) if m not in explicit_ids]
     dates = re.findall(r"\d{4}-\d{2}-\d{2}", text)
     today = date.fromisoformat(business_day)
     if not dates:

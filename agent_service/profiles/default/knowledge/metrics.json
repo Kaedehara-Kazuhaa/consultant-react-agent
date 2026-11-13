@@ -1,17 +1,17 @@
 [
   {
-    "id": "knowledge:roi:v1",
+    "id": "knowledge:roi:v2",
     "keywords": [
       "ROI",
       "投产",
       "怎么算"
     ],
     "title": "整体支付ROI",
-    "content": "整体ROI=区间整体GMV合计÷区间消耗合计；先汇总再相除，不平均逐日ROI。",
+    "content": "本项目的整体支付ROI沿用投放数据口径：区间整体支付GMV合计÷区间消耗合计，属于投产比/ROAS类指标，不是财务利润ROI。区间先汇总再相除，不平均逐日ROI。消耗为0不适用；必需字段NULL不完整计算。",
     "scope": "品牌方投手客服；单素材查询",
-    "source": "项目PRD V1.2 及显式开发假设",
-    "version": "1",
-    "rule_type": "项目约定，非外部平台官方规则",
+    "source": "dump日报overall_gmv/total_cost与overall_roi一致性校验；Google Ads ROAS定义：https://support.google.com/google-ads/answer/6268637?hl=zh-Hans",
+    "version": "2",
+    "rule_type": "数据字段校验与投产比定义；平台归因细节待确认",
     "assumption": true
   },
   {
@@ -29,17 +29,17 @@
     "assumption": true
   },
   {
-    "id": "knowledge:gmv:v1",
+    "id": "knowledge:gmv:v2",
     "keywords": [
       "GMV",
       "成交金额"
     ],
     "title": "整体GMV",
-    "content": "使用整体GMV字段，不与净成交、退款后GMV混用。",
+    "content": "GMV通常为统计期内按既定口径计算的商品成交总额；同价单品可表示为成交价×售出数量，多商品按各自金额求和。折扣、退款、运费和税费是否包含取决于平台口径。本项目不重建订单GMV，只按明确日期范围汇总dump已有overall_gmv字段；不把它当利润、净收入或净成交。",
     "scope": "品牌方投手客服；单素材查询",
-    "source": "项目PRD V1.2 及显式开发假设",
-    "version": "1",
-    "rule_type": "项目约定，非外部平台官方规则",
+    "source": "Shopify GMV定义：https://www.shopify.com/blog/gross-merchandise-value；本项目overall_gmv字段",
+    "version": "2",
+    "rule_type": "通用定义与字段汇总；平台包含项待确认",
     "assumption": true
   },
   {
@@ -207,7 +207,7 @@
       "ID类型"
     ],
     "title": "编号类型",
-    "content": "业务素材主键、平台素材编号、视频编号和账户编号不能互换；当前实现仅接受业务素材主键。",
+    "content": "业务素材主键、平台素材编号、视频编号和账户编号不能互换。dump模式业务主键为数字，输入“素材123”；合成样例输入“M0001”。当前尚未开放平台ID转换。",
     "scope": "品牌方投手客服；单素材查询",
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",

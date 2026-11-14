@@ -7,9 +7,10 @@
 | search_knowledge | question | knowledge条目ID | EMPTY澄清；检索命中不代表语义验证通过 |
 | resolve_material | material_id | material:ID | 不存在和无权限统一EMPTY |
 | get_material_status | material_id | material:ID | 状态与报表更新时间分开；未知枚举不推断 |
-| get_material_daily_performance | material_id,start_date,end_date | daily:ID:date | 日期非法或>31天ERROR；无记录EMPTY；缺失/NULL/PARTIAL分别表达 |
+| get_material_daily_performance | material_id,start_date,end_date | daily:ID:date | 日期非法或起止颠倒ERROR；不限31天；无记录EMPTY；缺失/NULL/PARTIAL分别表达 |
 | get_customer_context | 无 | context:ID | 只选一个授权、24小时内的有效候选；无数据EMPTY |
-| handoff_record | summary | 当前不返回成功依据 | HANDOFF_POLICY_NOT_CONNECTED，不产生记录 |
+| query_performance | entity,mode,ids/name,start_date,end_date,metric,descending,limit,page | analytics:结果摘要哈希 | EMPTY澄清；重复日报键ERROR；缺失与NULL单独标记 |
+| handoff_record | summary | 不返回成功依据 | 仅兼容旧接口，转接提示实际由服务端策略生成 |
 
 Observation统一为 `status,data,evidence_refs,error_code,retryable`。只有明确可重试错误才进行一次工具重试；不可无限重试。禁止向用户返回原始异常、SQL、堆栈或上游响应全文。
 
@@ -59,4 +60,9 @@ kind为view或alert；alert还必须为`status: open`。时间必须带时区，
 - materials：id,advertiser_id,title,delivery_status,test_status,last_sync_at,report_last_sync_at。
 - material_daily_trend_cache：material_id,advertiser_id,date,total_cost,overall_gmv,synced_at。
 
-素材与日报按服务端账户过滤，重复日报键拒绝计算。金额用Decimal，汇总后舍入展示；没有记录不按零填充，必需字段NULL时ROI不计算。当前历史适配将2026-03-27视为可能不完整，生产需要用数据源覆盖元信息替代该历史规则。暂不支持净ROI与标题查找，不将其他字段改名充当这些能力。
+素材与日报按服务端账户过滤，重复日报键拒绝计算。金额用Decimal，汇总后舍入展示；没有记录不按零填充，必需字段NULL时ROI不计算。覆盖按查询区间和NULL判断，不再硬编码某个历史日期。暂不支持净ROI与标题查找，不将其他字段改名充当这些能力。
+
+
+达人数据需要influencers(id,advertiser_id,nickname)与influencer_daily_trend_cache(influencer_id,advertiser_id,date,total_cost,overall_gmv,synced_at)，由prepare_data复制白名单字段。达人按账户鉴权，不用素材日报替代达人日报。query_performance按原始精度排序；分页不改变全量已有记录汇总。长区间单素材超过60条依据时改用区间内容摘要ID，完整日报留在Observation。
+
+状态接口GET /api/support/{session_id}返回当前身份对应会话的问题状态及累计人工请求数；GET /api/influencers?q=昵称&page=1提供当前范围达人目录。正式人工接口未实现；HANDOFF_PENDING仅为转接提示状态。

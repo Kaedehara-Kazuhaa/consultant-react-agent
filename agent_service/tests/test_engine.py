@@ -68,7 +68,7 @@ def test_material_end_to_end_persistent_trace(settings):
     assert build_engine(settings).store.events(req.request_id,'operator:B1') == events
 
 
-@pytest.mark.parametrize('message,status', [('ROI怎么算','ANSWERED_WAITING'),('你好','COLLECTING'),('我要转人工','UNRESOLVED'),('查询素材 M0002 状态','COLLECTING')])
+@pytest.mark.parametrize('message,status', [('ROI怎么算','ANSWERED_WAITING'),('你好','COLLECTING'),('我要转人工','COLLECTING'),('查询素材 M0002 状态','COLLECTING')])
 def test_branches(settings,message,status):
     result = run(build_engine(settings),request(message))
     assert result['status'] == status

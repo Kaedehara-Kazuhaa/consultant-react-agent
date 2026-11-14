@@ -46,4 +46,7 @@ CLI同一线程：
 
 开始前检查`git status`，干净时`git pull --ff-only`；有用户未提交修改先保留，不能强制覆盖。测试通过后只暂存本任务文件，`git diff --cached --stat`确认，再commit和push。网络中断分别报告本地提交、远程推送的真实状态，不使用force push。
 
-正式对外服务前仍需完成真实鉴权、完整事项状态机、人工策略与真实模型质量评测，见architecture的能力表。
+正式对外服务前仍需完成真实鉴权、跨会话语义事项关联、真实人工系统与模型质量评测，见architecture及decisions.md。
+
+
+support_issues、support_events、handoff_sessions存储在与Trace相同的本地运行SQLite中；不要删除运行库以排障，否则历史统计与槽位会丢失。新对话只改变会话，不清空用户历史。进程停止时不扫描静默，重启会补算。

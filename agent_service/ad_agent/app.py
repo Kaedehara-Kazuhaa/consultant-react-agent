@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo
 import asyncio
 import hmac
 import json
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -17,7 +18,20 @@ def build_engine(settings):
 def create_app(settings=None, engine=None):
     settings = settings or Settings.from_env()
     engine = engine or build_engine(settings)
-    app = FastAPI(title="广告业务 ReAct 调试服务", version="0.1.0")
+    @asynccontextmanager
+    async def lifespan(app):
+        async def sweep():
+            while True:
+                await asyncio.to_thread(engine.support.reconcile)
+                await asyncio.sleep(15)
+        task=asyncio.create_task(sweep())
+        try:
+            yield
+        finally:
+            task.cancel()
+            try:await task
+            except asyncio.CancelledError:pass
+    app = FastAPI(title="广告业务 ReAct 调试服务", version="0.2.0",lifespan=lifespan)
     app.state.engine = engine
     frontend=ROOT/'frontend/dist'
     if (frontend/'assets').exists():
@@ -64,6 +78,22 @@ def create_app(settings=None, engine=None):
             raise HTTPException(409, str(exc)) from exc
         except RuntimeError as exc:
             raise HTTPException(409, str(exc)) from exc
+
+    @app.get('/api/support/{session_id}')
+    async def support_state(session_id:str,authorization:str|None=Header(default=None)):
+        owner=auth(authorization)
+        return await asyncio.to_thread(engine.support.state,owner,session_id)
+
+    @app.get('/api/influencers')
+    async def influencers(q:str=Query(default='',max_length=200),page:int=Query(default=1,ge=1),authorization:str|None=Header(default=None)):
+        auth(authorization)
+        from .analytics import source_rows
+        try:
+            rows,_=await asyncio.to_thread(source_rows,engine.business_tools,context('catalog'),'influencer')
+        except ValueError:
+            raise HTTPException(409,'请先更新本地达人快照')
+        rows=[r for r in rows if not q or q==r['id'] or q in (r['name'] or '')]
+        return {'items':rows[(page-1)*20:page*20],'total':len(rows),'page':page}
 
     @app.get("/api/traces/{request_id}")
     async def traces(request_id: str, authorization: str | None = Header(default=None)):

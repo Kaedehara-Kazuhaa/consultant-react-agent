@@ -50,6 +50,7 @@ class Tool:
 class BusinessTools:
     """Fixed SQL templates only. No SQL or identity parameters are model-controlled."""
     def __init__(self, fixture_path: Path, knowledge_dir: Path, business_db="", customer_context_file=""):
+        from .analytics import AnalyticsQuery
         self.fixtures = json.loads(fixture_path.read_text(encoding="utf-8"))
         self.knowledge_dir = knowledge_dir
         self.business_db = business_db
@@ -75,9 +76,10 @@ class BusinessTools:
                 Tool("search_knowledge", "检索业务指标定义与使用规则", Search, self.search),
                 Tool("resolve_material", "在授权范围确认明确素材编号", Material, self.resolve),
                 Tool("get_material_status", "查询素材快照状态", Material, self.status),
-                Tool("get_material_daily_performance", "查询指定素材闭区间日报，最多31天", Daily, self.daily),
+                Tool("get_material_daily_performance", "查询指定素材闭区间日报，金额人民币；不限31天", Daily, self.daily),
+                Tool("query_performance", "按日期批量查询素材或达人，汇总及按消耗/GMV/ROI排行；支持分页", AnalyticsQuery, self.analytics),
                 Tool("get_customer_context", "读取授权用户近期浏览和异常；缺失时返回空", Empty, self.customer_context),
-                Tool("handoff_record", "人工衔接扩展点；策略存储未接入时明确返回未就绪", Handoff, self.handoff),
+                Tool("handoff_record", "人工策略由服务端执行；此工具不具备外部转接权限", Handoff, self.handoff),
             ]
         }
 
@@ -143,7 +145,7 @@ class BusinessTools:
             start, end = date.fromisoformat(args.start_date), date.fromisoformat(args.end_date)
         except ValueError:
             return Observation(status="ERROR", error_code="INVALID_RANGE")
-        if not 0 <= (end-start).days <= 30:
+        if end < start:
             return Observation(status="ERROR", error_code="INVALID_RANGE")
         material, rows = await asyncio.to_thread(self.records, ctx, args.material_id)
         if not material:
@@ -158,8 +160,16 @@ class BusinessTools:
         nulls = any(r[k] is None for r in selected for k in ["total_cost", "overall_gmv"])
         sums = {k: sum((Decimal(r[k]) for r in selected if r[k] is not None), Decimal(0)) for k in ["total_cost", "overall_gmv"]}
         roi = None if nulls or not sums["total_cost"] else str((sums["overall_gmv"]/sums["total_cost"]).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
-        partial = bool(missing or nulls or "2026-03-27" in dates)
-        return Observation(status="PARTIAL" if partial else "OK", data={"material_id": args.material_id, "start_date": args.start_date, "end_date": args.end_date, "daily": selected, "known_total_cost": str(sums["total_cost"].quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)), "known_overall_gmv": str(sums["overall_gmv"].quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)), "roi": roi, "roi_note": "不可完整计算" if nulls else "不适用" if not sums["total_cost"] else "仅汇总已有记录" if partial else "完整记录", "missing_days": missing, "null_fields": nulls, "snapshot": "historical", "synthetic": not bool(self.business_db)}, evidence_refs=[f"daily:{args.material_id}:{d}" for d in dates])
+        partial = bool(missing or nulls)
+        refs=[f"daily:{args.material_id}:{d}" for d in dates]
+        if len(refs)>60:
+            digest=hashlib.sha256(json.dumps(selected,sort_keys=True).encode()).hexdigest()[:24]
+            refs=['daily-range:'+digest]
+        return Observation(status="PARTIAL" if partial else "OK", data={"material_id": args.material_id, "start_date": args.start_date, "end_date": args.end_date, "daily": selected, "known_total_cost": str(sums["total_cost"].quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)), "known_overall_gmv": str(sums["overall_gmv"].quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)), "roi": roi, "roi_note": "不可完整计算" if nulls else "不适用" if not sums["total_cost"] else "仅汇总已有记录" if partial else "完整记录", "missing_days": missing, "null_fields": nulls, "snapshot": "historical", "currency":"CNY", "synthetic": not bool(self.business_db)}, evidence_refs=refs)
+
+    async def analytics(self,args,ctx):
+        from .analytics import execute
+        return await asyncio.to_thread(execute,self,args,ctx)
 
     async def customer_context(self, args, ctx):
         if self.customer_context_file:
@@ -190,5 +200,4 @@ class BusinessTools:
         return Observation(status="EMPTY", data={"recent_views": [], "metric_alerts": [], "message": "未接入可核验的近期用户上下文，请用户补充需求"})
 
     async def handoff(self, args, ctx):
-        # Fail closed until real history/attempt policy has persistent, trusted state.
-        return Observation(status="ERROR", error_code="HANDOFF_POLICY_NOT_CONNECTED", data={"message": "未生成交接记录：历史资格及有效尝试策略尚未接入"})
+        return Observation(status="ERROR", error_code="HANDOFF_SERVER_POLICY_REQUIRED", data={"message": "转接提示只能由服务端策略判定，不接外部人工接口"})

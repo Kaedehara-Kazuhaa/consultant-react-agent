@@ -9,7 +9,7 @@ from .config import ROOT
 DEFAULT_SOURCE=Path(r'C:\Users\Administrator\Documents\Codex\2026-10-29\https-d8gspvluc6-feishu-cn-docx-uuy4dwnlmog91jx9bidcsus9nmd\outputs\数据阅读包\全部数据.sqlite')
 
 
-def prepare(source, destination):
+def prepare(source, destination, *, replace_config=True):
     source,destination=Path(source).resolve(),Path(destination).resolve()
     if source==destination or destination.exists():
         raise ValueError('Destination exists; choose a new output file to preserve existing data')
@@ -24,6 +24,14 @@ def prepare(source, destination):
             out.execute(f'CREATE TABLE {table} ('+','.join(f'{c} TEXT' for c in columns)+')')
             rows=src.execute(f'SELECT {",".join(columns)} FROM {table}')
             out.executemany(f'INSERT INTO {table} VALUES ({",".join("?" for _ in columns)})',rows)
+        optional={
+            'influencers':['id','advertiser_id','nickname'],
+            'influencer_daily_trend_cache':['influencer_id','advertiser_id','date','total_cost','overall_gmv','synced_at'],
+        }
+        for table,columns in optional.items():
+            out.execute(f'CREATE TABLE {table} ('+','.join(f'{c} TEXT' for c in columns)+')')
+            if src.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",(table,)).fetchone():
+                out.executemany(f'INSERT INTO {table} VALUES ({",".join("?" for _ in columns)})',src.execute(f'SELECT {",".join(columns)} FROM {table}'))
         out.executescript('''CREATE INDEX material_scope ON materials(id,advertiser_id);
           CREATE INDEX daily_scope ON material_daily_trend_cache(material_id,advertiser_id,date);
           CREATE INDEX material_account ON materials(advertiser_id);''')
@@ -37,7 +45,8 @@ def prepare(source, destination):
         out.commit()
     config={'business_db':str(destination),'customer_id':'local-snapshot-viewer','brand_id':candidate[0],'accounts':accounts,'data_mode':'dump_snapshot','coverage':list(coverage),'source':'dump-derived curated SQLite','identity_mode':'local_snapshot_viewer_not_production_login'}
     config_path=destination.parent/'local-data.json'
-    config_path.write_text(json.dumps(config,ensure_ascii=False,indent=2),encoding='utf-8')
+    if replace_config:
+        config_path.write_text(json.dumps(config,ensure_ascii=False,indent=2),encoding='utf-8')
     return config_path
 
 

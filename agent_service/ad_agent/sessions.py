@@ -7,7 +7,7 @@ from .trace import redact
 
 class Sessions:
     """SQLite turn mutex shared by workers. Leases recover after bounded turns/crashes."""
-    def __init__(self, path, ttl=1800, lease=120):
+    def __init__(self, path, ttl=None, lease=120):
         self.path, self.ttl, self.lease = path, ttl, lease
         with self.connect() as db:
             db.executescript('''
@@ -47,7 +47,7 @@ class Sessions:
     def load(self, owner, session):
         with self.connect() as db:
             row=db.execute('SELECT updated,payload FROM conversation_state WHERE owner=? AND session=?',(owner,session)).fetchone()
-        return json.loads(row[1]) if row and time.time()-row[0] < self.ttl else {}
+        return json.loads(row[1]) if row and (self.ttl is None or time.time()-row[0] < self.ttl) else {}
 
     def save(self, owner, session, payload):
         with self.connect() as db:

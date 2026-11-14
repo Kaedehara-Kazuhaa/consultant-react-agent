@@ -11,6 +11,8 @@
 - [运行和排障](agent_service/docs/runbook.md)
 - [链路验收说明](agent_service/docs/acceptance.md)
 
-默认使用合成数据及确定性演示决策器。真实模型接口可配置，但Demo通过不等于真实模型效果已达标。备份数据、数据库、运行日志与密钥不纳入仓库。
+正常启动优先使用本地dump快照；合成数据保留用于测试。默认决策器仍是确定性规则。真实模型接口可配置，但Demo通过不等于真实模型效果已达标。备份数据、数据库、运行日志与密钥不纳入仓库。
 
 新版提供React网页、dump只读业务快照和保留的合成样例。[模型调用说明](agent_service/docs/model-access.md) · [ROI与GMV口径](agent_service/docs/metrics.md)。
+
+支持批量素材、排行、达人汇总、30分钟静默确认与持久化人工请求统计。[已确认规则与待确认参数](agent_service/docs/decisions.md)。

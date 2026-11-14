@@ -45,6 +45,7 @@ profiles/default/
   AGENTS.md                 总角色、约束、启用技能及工具白名单
   skills/knowledge/SKILL.md  规则和指标查询步骤
   skills/material/SKILL.md   素材数据查询步骤
+  skills/analytics/SKILL.md  批量、排行及达人汇总
   skills/clarify/SKILL.md    模糊进线与单一假设确认
   skills/diagnose/SKILL.md   数据异议与纠错
   skills/feedback/SKILL.md   明确反馈与解决边界
@@ -57,8 +58,8 @@ Agent 文件示例：
 ```yaml
 ---
 name: my-agent
-skills: [knowledge, material, clarify, diagnose, feedback, handoff]
-tools: [search_knowledge, resolve_material, get_material_status, get_material_daily_performance, get_customer_context, handoff_record]
+skills: [knowledge, material, analytics, clarify, diagnose, feedback, handoff]
+tools: [search_knowledge, resolve_material, get_material_status, get_material_daily_performance, query_performance, get_customer_context, handoff_record]
 ---
 此处写角色、约束及回答标准。
 ```
@@ -83,7 +84,7 @@ $env:AGENT_API_TOKEN="your-local-api-token"
 
 默认 `fixtures/business.json` 是明确标注的合成数据。设置 `AGENT_BUSINESS_DB` 可切换到由 dump 提取的 SQLite，只读连接，要求含 `materials` 和 `material_daily_trend_cache` 的对应字段；不是直接读取 PostgreSQL `.dump`。SQL 模板固定，素材与日报均限定服务端提供的 advertiser_id。真实账号身份映射尚需接入；当前 Web/CLI 使用固定演示身份 B1/A1，因此不能直接作为多客户生产服务。
 
-`get_customer_context` 默认返回空，也支持通过 `AGENT_CUSTOMER_CONTEXT_FILE` 接入受信后台记录，筛选新鲜且授权的一项候选并等待确认；`handoff_record` 当前明确返回策略未接入，不生成虚假交接记录。对话当天基准日由服务端按 Asia/Shanghai 生成，历史示例查询请使用示例日期。
+`get_customer_context` 默认返回空，也支持通过 `AGENT_CUSTOMER_CONTEXT_FILE` 接入受信后台记录，筛选新鲜且授权的一项候选并等待确认；人工请求由服务端账本统计、去重和判定，资格通过时只输出转接提示，不调用真实人工接口。对话当天基准日由服务端按 Asia/Shanghai 生成，历史示例查询请使用示例日期。
 
 ## Trace 内容
 
@@ -110,10 +111,13 @@ $env:AGENT_API_TOKEN="your-local-api-token"
 
 已实现文档加载/校验/版本标记、技能匹配、ReAct 工具循环、规则检索、授权素材查询、精确金额计算、Trace 持久化与导出、模型适配器及最小调试页。回答引用校验检查引用是否真实来自工具，不能代替答案语义正确性评测。
 
-这是支持继续实现 PRD 的架构基础，不是完整业务交付。`session_id` 现支持用户+品牌+线程隔离的槽位、候选和最后回答状态持久化，30分钟无交互后过期；基础明确反馈可确认上一回答。完整多事项关系与真实行为平台仍需接入；约3次有效解决尝试、历史转人工资格、交接记录接服务端持久化策略与 `handoff_record`；静默窗口、跨会话同问题重开和计数撤销仍需接独立事项状态机。现有循环预算不能当作人工拦截次数。真实知识库与账号映射、净ROI口径、多轮评测集需要继续接入。
+这是本地业务原型。session_id支持用户+品牌+线程隔离，槽位持久化不因30分钟闲置清除。support.py持久化问题、有效尝试及人工请求，支持30分钟无负反馈确认和后续负反馈重开；资格通过输出转接提示，不对接真实人工。正式多用户鉴权、行为平台、跨会话语义事项关联、净ROI和真实模型质量评测仍需继续接入。循环预算与人工拦截次数分开。
 
 测试命令：`..\.venv\Scripts\python.exe -m pytest -q`。测试覆盖业务分支、零值/NULL/缺失、越权与参数、循环预算、重试超时、文档修改、伪造引用、幂等、Trace隔离、模型协议与HTTP/SSE。
 
 已建立 GitHub 远程仓库 `consultant-react-agent`，项目修改按检查与同步→修改验证→提交→推送执行。根目录 `.gitignore` 已排除 dump、数据库、运行日志、虚拟环境与 `.env`；以后同步时应仅选代码和示例文档，勿将现有业务资料整目录提交。
 
 离线链路验收：`..\.venv\Scripts\python.exe -m ad_agent.evals`，使用固定日期与合成数据验证10个场景、22轮连续交互；报告保存在 `var/eval_report.json`。
+
+
+当前业务规则以[decisions.md](docs/decisions.md)为准：支持长区间批量及排行、达人日报、最近7天含当天、人民币、跨30分钟槽位继承、30分钟静默认定与负反馈重开。历史记录从本项目事件开始累计，未导入未核验身份的dump对话。

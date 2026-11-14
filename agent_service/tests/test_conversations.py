@@ -31,7 +31,7 @@ def test_date_completion_restart_feedback_and_reopen(settings):
     assert '3.00' in result['response']
     assert turn(engine,'明白了')['status']=='CONFIRMED_RESOLVED'
     result=turn(engine,'这个数不对，改成2026-03-25')
-    assert result['status']=='ANSWERED_WAITING'
+    assert result['status']=='UNRESOLVED'
     assert '不适用' in result['response']
     events=engine.store.events(result['request_id'],'u:B1')
     assert 'diagnose' in [s['name'] for e in events if e['type']=='documents_loaded' for s in e['payload']['skills']]
@@ -70,7 +70,7 @@ def test_expiry_and_concurrency(settings):
     turn(engine,'查M0001消耗')
     with sqlite3.connect(settings.trace_db) as db:
         db.execute('UPDATE conversation_state SET updated=0')
-    assert turn(engine,'2026-03-24')['status']=='COLLECTING'
+    assert turn(engine,'2026-03-24')['status']=='ANSWERED_WAITING'
     with engine.sessions.turn('u:B1','s','held'):
         with pytest.raises(RuntimeError,match='Session already processing'):
             turn(engine,'你好')
@@ -78,14 +78,14 @@ def test_expiry_and_concurrency(settings):
 
 def test_multiple_materials_and_mixed_handoff(settings):
     engine=build_engine(settings)
-    assert turn(engine,'素材M0001和M0002昨天表现')['status']=='COLLECTING'
+    assert turn(engine,'素材M0001和M0002昨天表现')['status']=='ANSWERED_WAITING'
     result=turn(engine,'转人工，查M0001 2026-03-24 ROI')
     assert result['status']=='ANSWERED_WAITING'
     assert result['actions']==2
-    assert turn(engine,'转人工')['status']=='UNRESOLVED'
+    assert turn(engine,'转人工')['status']=='COLLECTING'
 
 
-@pytest.mark.parametrize('text,start,end', [('昨天','2026-03-25','2026-03-25'),('前天','2026-03-24','2026-03-24'),('近7天','2026-03-19','2026-03-25'),('2026-02-28','2026-02-28','2026-02-28')])
+@pytest.mark.parametrize('text,start,end', [('昨天','2026-03-25','2026-03-25'),('前天','2026-03-24','2026-03-24'),('近7天','2026-03-20','2026-03-26'),('2026-02-28','2026-02-28','2026-02-28')])
 def test_absolute_dates(text,start,end):
     state=resolve_turn('素材M0001'+text,{},'2026-03-26')
     assert state['slots']['start_date']==start

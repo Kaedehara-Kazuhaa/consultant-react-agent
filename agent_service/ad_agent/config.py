@@ -24,12 +24,18 @@ class Settings:
     call_timeout: float = 30
     turn_timeout: float = 90
     retries: int = 1
+    silence_seconds: int = 1800
+    handoff_history_days: int = 30
+    handoff_history_limit: int = 3
+    handoff_attempts: int = 3
 
     def __post_init__(self):
         if not 1 <= self.max_actions <= 20 or not 0 <= self.retries <= 1:
             raise ValueError("Invalid execution budget")
         if not 0 < self.call_timeout <= self.turn_timeout:
             raise ValueError("Invalid timeout budget")
+        if min(self.silence_seconds,self.handoff_history_days,self.handoff_history_limit,self.handoff_attempts)<1:
+            raise ValueError('Support policy values must be positive')
 
     @classmethod
     def from_env(cls):
@@ -48,4 +54,6 @@ class Settings:
             codex_executable=os.getenv('CODEX_EXECUTABLE','codex'),
             call_timeout=90 if os.getenv('AGENT_PROVIDER')=='codex' else 30,
             turn_timeout=300 if os.getenv('AGENT_PROVIDER')=='codex' else 90,
+            handoff_history_days=int(os.getenv('HANDOFF_HISTORY_DAYS','30')),
+            handoff_history_limit=int(os.getenv('HANDOFF_HISTORY_LIMIT','3')),
         )

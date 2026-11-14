@@ -17,7 +17,7 @@ cd D:\cst_proj\agent_service
 ..\.venv\Scripts\python.exe -m uvicorn ad_agent.app:create_app --factory --host 127.0.0.1 --port 8765
 ```
 
-日常使用根目录Start.cmd；首次新环境用Setup.cmd安装Python依赖并构建React。根目录启动器检测到本地数据配置时默认使用dump快照，直接运行uvicorn则遵循环境配置。打开 http://127.0.0.1:8765 。默认不需要模型密钥，使用确定性 DemoProvider；示例命令不指定dump时使用合成业务数据，可查看执行 Trace 并导出 JSONL。DemoProvider 用于验证架构，不是语言模型，也不会因修改文案自动学习新的业务推理。
+日常使用根目录Start.cmd；首次新环境用Setup.cmd安装Python依赖并构建React。根目录启动器检测到本地数据配置时默认使用dump快照，直接运行uvicorn则遵循环境配置。打开 http://127.0.0.1:8765 。未配置本地模型的新环境使用不需要密钥的DemoProvider；示例命令不指定dump时使用合成业务数据，可查看执行 Trace 并导出 JSONL。DemoProvider 用于验证架构，不是语言模型，也不会因修改文案自动学习新的业务推理。
 
 ## 执行链路
 
@@ -80,7 +80,7 @@ $env:MODEL_API_KEY="your-key"
 $env:AGENT_API_TOKEN="your-local-api-token"
 ```
 
-重启服务，在调试台输入 API Token。`.env.example` 仅列出配置项，不自动加载；不要将真实密钥写进 Agent/Skill 文档。真实模型适配器已经过模拟 HTTP 协议测试，未使用真实密钥进行联网效果评测。
+重启服务，在调试台输入 API Token。`.env.example` 仅列出配置项，不自动加载；不要将真实密钥写进 Agent/Skill 文档。真实模型适配器已通过模拟协议和本机DeepSeek联网测试；密钥仅存于Git忽略的本地DPAPI文件，模型与版本说明见docs/model-access.md。
 
 默认 `fixtures/business.json` 是明确标注的合成数据。设置 `AGENT_BUSINESS_DB` 可切换到由 dump 提取的 SQLite，只读连接，要求含 `materials` 和 `material_daily_trend_cache` 的对应字段；不是直接读取 PostgreSQL `.dump`。SQL 模板固定，素材与日报均限定服务端提供的 advertiser_id。真实账号身份映射尚需接入；当前 Web/CLI 使用固定演示身份 B1/A1，因此不能直接作为多客户生产服务。
 
@@ -121,3 +121,6 @@ $env:AGENT_API_TOKEN="your-local-api-token"
 
 
 当前业务规则以[decisions.md](docs/decisions.md)为准：支持长区间批量及排行、达人日报、最近7天含当天、人民币、跨30分钟槽位继承、30分钟静默认定与负反馈重开。历史记录从本项目事件开始累计，未导入未核验身份的dump对话。
+
+
+本机DeepSeek配置已接通，启动器自动选择兼容API模式。没有本地模型配置的新环境默认demo，环境变量可覆盖本地配置。密钥不包含在仓库内。

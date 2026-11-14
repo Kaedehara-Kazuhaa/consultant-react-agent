@@ -12,9 +12,11 @@ from .config import ROOT
 
 
 def main():
+    from .local_config import model_config
+    model_local,_=model_config()
     parser=argparse.ArgumentParser()
     parser.add_argument('--data',choices=['auto','dump','synthetic'],default='auto')
-    parser.add_argument('--provider',choices=['demo','compatible','codex'],default=os.getenv('AGENT_PROVIDER','demo'))
+    parser.add_argument('--provider',choices=['demo','compatible','codex'],default=os.getenv('AGENT_PROVIDER',model_local.get('provider','demo')))
     parser.add_argument('--port',type=int,default=8765)
     parser.add_argument('--no-browser',action='store_true')
     args=parser.parse_args()

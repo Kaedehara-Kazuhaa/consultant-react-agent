@@ -19,7 +19,10 @@ class CompatibleProvider:
 
     async def decide(self, state):
         payload = {"model": self.settings.model, "messages": [{"role": "system", "content": SYSTEM + "\nDecision schema:\n" + json.dumps(Decision.model_json_schema(), ensure_ascii=False)}, {"role": "user", "content": json.dumps(state, ensure_ascii=False)}], "stream": False, "response_format": {"type": "json_object"}}
-        async with httpx.AsyncClient(timeout=self.settings.call_timeout, transport=self.transport) as client:
+        payload['max_tokens']=self.settings.model_max_tokens
+        if self.settings.model_thinking:
+            payload['thinking']={'type':self.settings.model_thinking}
+        async with httpx.AsyncClient(timeout=self.settings.call_timeout, transport=self.transport,trust_env=False) as client:
             response = await client.post(self.settings.base_url.rstrip("/")+"/chat/completions", headers={"Authorization": "Bearer "+self.settings.api_key}, json=payload)
             response.raise_for_status()
             return Decision.model_validate_json(response.json()["choices"][0]["message"]["content"])

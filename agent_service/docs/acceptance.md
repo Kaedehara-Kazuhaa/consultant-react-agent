@@ -1,5 +1,15 @@
 # 链路验收
 
+## 2026-11-15 DeepSeek接通验收
+
+- 官方GET /models认证成功；返回deepseek-flash与deepseek-v4-pro。实际调用deepseek-flash成功，非规则演示。
+- 真实Engine场景：规则解释、单素材、日期纠正、批量、达人，共5轮，均返回ANSWERED_WAITING并闭合Trace；答案数字与已知工具数据核验一致。
+- 浏览器：本地网页自动授权，实际发起素材查数并展示正确消耗/GMV/ROI及执行轨迹，页头显示deepseek-flash。
+- pytest共59项通过，包含DPAPI加密往返、环境覆盖、密钥repr隐藏、HttpOnly cookie认证、非loopback拒绝cookie和DeepSeek请求参数；React/Vite构建通过。
+- 密钥与本地令牌存于Windows当前用户DPAPI文件；配置/凭证均被Git忽略，已扫描受管理文件及现有Git历史未包含真实密钥。
+- 本次样本有限，真实模型仍需扩充语义评测；批量答复出现一处NULL术语文案瑕疵，不能以状态成功代替全部语义正确。
+
+
 ## 2026-11-15 批量分析与客服状态验收
 
 - 全量pytest：55项通过；最后新增的生命周期审计改动另跑9项针对性测试通过。

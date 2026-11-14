@@ -2,9 +2,11 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 import asyncio
 import hmac
+import hashlib
 import json
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import Request as HTTPRequest
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from .config import ROOT, Settings
@@ -37,8 +39,15 @@ def create_app(settings=None, engine=None):
     if (frontend/'assets').exists():
         app.mount('/assets',StaticFiles(directory=frontend/'assets'),name='assets')
 
-    def auth(authorization):
-        if settings.api_token and not hmac.compare_digest(authorization or "", "Bearer "+settings.api_token):
+    def local_browser(request):
+        return bool(settings.local_browser_auth and request and request.client and request.client.host in {'127.0.0.1','::1'} and request.url.hostname in {'localhost','127.0.0.1','::1'})
+
+    def cookie_value():
+        return hmac.new(settings.api_token.encode(),b'consultant-local-browser-v1',hashlib.sha256).hexdigest()
+
+    def auth(authorization,request=None):
+        cookie_ok=bool(not authorization and settings.api_token and local_browser(request) and hmac.compare_digest(request.cookies.get('consultant_local',''),cookie_value()))
+        if settings.api_token and not cookie_ok and not hmac.compare_digest(authorization or "", "Bearer "+settings.api_token):
             raise HTTPException(401, "Invalid API token")
         # This scaffold intentionally exposes one deployment-owned demo identity only.
         # Production authentication must replace this with verified business login claims.
@@ -57,21 +66,24 @@ def create_app(settings=None, engine=None):
         return await call_next(request)
 
     @app.get("/")
-    async def page():
-        return FileResponse(frontend/'index.html' if (frontend/'index.html').exists() else ROOT/'web/index.html')
+    async def page(request:HTTPRequest):
+        response=FileResponse(frontend/'index.html' if (frontend/'index.html').exists() else ROOT/'web/index.html')
+        if settings.api_token and local_browser(request):
+            response.set_cookie('consultant_local',cookie_value(),httponly=True,samesite='strict',path='/')
+        return response
 
     @app.get("/health")
     async def health():
-        return {"status": "ok", "provider": settings.provider, "profile": engine.profile.name, "identity_mode": "local_snapshot_viewer" if settings.business_db else "single_demo_identity", "data_mode":"dump_snapshot" if settings.business_db else "synthetic", "trace_semantics": "decision_summary_not_hidden_reasoning"}
+        return {"status": "ok", "provider": settings.provider, "model":settings.model if settings.provider=='compatible' else '', "local_browser_auth":settings.local_browser_auth,"profile": engine.profile.name, "identity_mode": "local_snapshot_viewer" if settings.business_db else "single_demo_identity", "data_mode":"dump_snapshot" if settings.business_db else "synthetic", "trace_semantics": "decision_summary_not_hidden_reasoning"}
 
     @app.get('/api/materials')
-    async def materials(q:str=Query(default='',max_length=200),page:int=Query(default=1,ge=1,le=1000000),authorization:str|None=Header(default=None)):
-        auth(authorization)
+    async def materials(request:HTTPRequest,q:str=Query(default='',max_length=200),page:int=Query(default=1,ge=1,le=1000000),authorization:str|None=Header(default=None)):
+        auth(authorization,request)
         return await asyncio.to_thread(engine.catalog,context('catalog'),q,page)
 
     @app.post("/api/run")
-    async def run(request: Request, authorization: str | None = Header(default=None)):
-        auth(authorization)
+    async def run(request: Request,http_request:HTTPRequest, authorization: str | None = Header(default=None)):
+        auth(authorization,http_request)
         try:
             return await engine.run(request, context(request.session_id))
         except ValueError as exc:
@@ -80,13 +92,13 @@ def create_app(settings=None, engine=None):
             raise HTTPException(409, str(exc)) from exc
 
     @app.get('/api/support/{session_id}')
-    async def support_state(session_id:str,authorization:str|None=Header(default=None)):
-        owner=auth(authorization)
+    async def support_state(session_id:str,request:HTTPRequest,authorization:str|None=Header(default=None)):
+        owner=auth(authorization,request)
         return await asyncio.to_thread(engine.support.state,owner,session_id)
 
     @app.get('/api/influencers')
-    async def influencers(q:str=Query(default='',max_length=200),page:int=Query(default=1,ge=1),authorization:str|None=Header(default=None)):
-        auth(authorization)
+    async def influencers(request:HTTPRequest,q:str=Query(default='',max_length=200),page:int=Query(default=1,ge=1),authorization:str|None=Header(default=None)):
+        auth(authorization,request)
         from .analytics import source_rows
         try:
             rows,_=await asyncio.to_thread(source_rows,engine.business_tools,context('catalog'),'influencer')
@@ -96,16 +108,16 @@ def create_app(settings=None, engine=None):
         return {'items':rows[(page-1)*20:page*20],'total':len(rows),'page':page}
 
     @app.get("/api/traces/{request_id}")
-    async def traces(request_id: str, authorization: str | None = Header(default=None)):
-        owner = auth(authorization)
+    async def traces(request_id: str,request:HTTPRequest, authorization: str | None = Header(default=None)):
+        owner = auth(authorization,request)
         try:
             return {"request_id": request_id, "events": engine.store.events(request_id, owner)}
         except KeyError as exc:
             raise HTTPException(404, "Trace not found") from exc
 
     @app.get("/api/traces/{request_id}/stream")
-    async def stream(request_id: str, authorization: str | None = Header(default=None)):
-        owner = auth(authorization)
+    async def stream(request_id: str,request:HTTPRequest, authorization: str | None = Header(default=None)):
+        owner = auth(authorization,request)
         try:
             engine.store.events(request_id, owner)
         except KeyError as exc:

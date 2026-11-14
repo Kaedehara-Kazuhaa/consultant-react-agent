@@ -6,6 +6,8 @@
 
 本次依赖、React构建和dump查询快照已准备完成，不需要重新安装。默认优先使用`var/local-data.json`中的dump快照；不存在时使用保留的合成样例，并在页面显示来源。
 
+本机已保存DeepSeek加密配置，原启动文件会默认连接`deepseek-flash`；无需每次输入密钥。本地网页自动授权。需要离线演示时运行`Start.cmd --provider demo`。密钥不会随GitHub同步，新电脑需要自己的本地配置。
+
 ## 新电脑或依赖变化
 
 首次运行Setup.cmd：创建/使用根目录Python虚拟环境、安装Python依赖、安装前端依赖并构建。`pip install -e`表示开发源码直接生效；通常不需要每次改Python代码后重装。

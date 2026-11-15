@@ -16,3 +16,9 @@
 新版提供React网页、dump只读业务快照和保留的合成样例。[模型调用说明](agent_service/docs/model-access.md) · [ROI与GMV口径](agent_service/docs/metrics.md)。
 
 支持批量素材、排行、达人汇总、30分钟静默确认与持久化人工请求统计。[已确认规则与待确认参数](agent_service/docs/decisions.md)。
+
+## 评审与作品集展示
+
+[克隆运行与演示说明](agent_service/docs/portfolio.md) · [功能测试输入与预期](agent_service/docs/testing-workbench.md)。本地端口适合运行和现场展示；GitHub分享源码，公开在线访问需另行部署后端。
+
+核心实现包含可自定义Agent/Skill文档、按意图选择技能、权限与转人工策略、ReAct工具循环及结构化Trace。Trace显示具体技能和工具名称及观察结果；不输出模型隐藏思维链。未来截止日会提醒并裁到对话当天，保留已有记录及最新日报日期。

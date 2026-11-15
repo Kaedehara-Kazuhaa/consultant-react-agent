@@ -19,7 +19,11 @@ def main():
     parser.add_argument('--provider',choices=['demo','compatible','codex'],default=os.getenv('AGENT_PROVIDER',model_local.get('provider','demo')))
     parser.add_argument('--port',type=int,default=8765)
     parser.add_argument('--no-browser',action='store_true')
+    parser.add_argument('--test',action='store_true',help='Enable loopback-only disposable browser test rounds')
     args=parser.parse_args()
+    if args.test:
+        os.environ['AGENT_TEST_MODE']='1'
+        os.environ['AGENT_LOCAL_BROWSER_AUTH']='1'
     if hasattr(sys.stdout,'reconfigure'):sys.stdout.reconfigure(encoding='utf-8')
     local=ROOT/'var/local-data.json'
     mode='dump' if args.data=='auto' and local.exists() else 'synthetic' if args.data=='auto' else args.data

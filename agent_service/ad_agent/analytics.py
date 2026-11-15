@@ -10,6 +10,7 @@ from typing import Literal
 from pydantic import Field
 from .models import Observation
 from .tools import Arguments
+from .periods import bounded_period
 
 
 class AnalyticsQuery(Arguments):
@@ -52,10 +53,12 @@ def source_rows(tools, ctx, entity):
 
 def execute(tools,args,ctx):
     try:
-        start,end=date.fromisoformat(args.start_date),date.fromisoformat(args.end_date)
-        if end<start:raise ValueError()
+        start,end,period=bounded_period(args.start_date,args.end_date,ctx.business_day)
     except ValueError:
         return Observation(status='ERROR',error_code='INVALID_RANGE')
+    if period['entirely_future']:
+        return Observation(status='EMPTY',data={'message':period['notice'],'period':period})
+    args=args.model_copy(update={'end_date':end.isoformat()})
     try:
         objects,daily=source_rows(tools,ctx,args.entity)
     except ValueError:
@@ -108,5 +111,6 @@ def execute(tools,args,ctx):
     # Missing objects/days mean summary contains only known records, not full totals.
     incomplete |= bool(no_records or not_found)
     digest=hashlib.sha256(json.dumps({'scope':[ctx.brand_id,list(ctx.accounts)],'query':args.model_dump(),'rows':page,'cost':str(all_cost),'gmv':str(all_gmv)},sort_keys=True,ensure_ascii=False).encode()).hexdigest()[:24]
-    data={'entity':args.entity,'mode':args.mode,'metric':args.metric,'descending':args.descending,'start_date':args.start_date,'end_date':args.end_date,'rows':page,'total':len(results),'page':args.page,'page_size':args.limit,'known_total_cost':money(all_cost),'known_overall_gmv':money(all_gmv),'roi':None if any_null or not all_cost else money(all_gmv/all_cost),'roi_note':'仅代表已有记录' if incomplete else '完整记录','partial':incomplete,'no_records':no_records[:20],'no_records_count':len(no_records),'not_found':not_found,'currency':'CNY','synthetic':not bool(tools.business_db),'source_table':'material_daily_trend_cache' if args.entity=='material' else 'influencer_daily_trend_cache'}
+    record_dates=[r['date'] for rows in groups.values() for r in rows]
+    data={'period':period,'data_from':min(record_dates),'data_through':max(record_dates),'entity':args.entity,'mode':args.mode,'metric':args.metric,'descending':args.descending,'start_date':args.start_date,'end_date':args.end_date,'rows':page,'total':len(results),'page':args.page,'page_size':args.limit,'known_total_cost':money(all_cost),'known_overall_gmv':money(all_gmv),'roi':None if any_null or not all_cost else money(all_gmv/all_cost),'roi_note':'仅代表已有记录' if incomplete else '完整记录','partial':incomplete,'no_records':no_records[:20],'no_records_count':len(no_records),'not_found':not_found,'currency':'CNY','synthetic':not bool(tools.business_db),'source_table':'material_daily_trend_cache' if args.entity=='material' else 'influencer_daily_trend_cache'}
     return Observation(status='PARTIAL' if incomplete else 'OK',data=data,evidence_refs=['analytics:'+digest])

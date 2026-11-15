@@ -9,6 +9,7 @@ from pathlib import Path
 import sqlite3
 from pydantic import BaseModel, ConfigDict, Field
 from .models import Observation
+from .periods import bounded_period
 
 @dataclass(frozen=True)
 class Context:
@@ -147,17 +148,18 @@ class BusinessTools:
 
     async def daily(self, args: Daily, ctx):
         try:
-            start, end = date.fromisoformat(args.start_date), date.fromisoformat(args.end_date)
+            start, end, period = bounded_period(args.start_date,args.end_date,ctx.business_day)
         except ValueError:
             return Observation(status="ERROR", error_code="INVALID_RANGE")
-        if end < start:
-            return Observation(status="ERROR", error_code="INVALID_RANGE")
+        if period['entirely_future']:
+            return Observation(status='EMPTY',data={'message':period['notice'],'period':period})
+        args=args.model_copy(update={'end_date':end.isoformat()})
         material, rows = await asyncio.to_thread(self.records, ctx, args.material_id)
         if not material:
             return Observation(status="EMPTY", data={"message": "当前可查询范围内未找到"})
         selected = [r for r in rows if args.start_date <= r["date"] <= args.end_date]
         if not selected:
-            return Observation(status="EMPTY", data={"available_dates": [r["date"] for r in rows], "message": "该区间无记录，不等于消耗为0"})
+            return Observation(status="EMPTY", data={"available_dates": [r["date"] for r in rows if r['date']<=ctx.business_day], "period":period, "message": "该区间无记录，不等于消耗为0"})
         dates = sorted({r["date"] for r in selected})
         if len(dates) != len(selected):
             return Observation(status="ERROR", error_code="DUPLICATE_DAILY_KEY")
@@ -170,7 +172,7 @@ class BusinessTools:
         if len(refs)>60:
             digest=hashlib.sha256(json.dumps(selected,sort_keys=True).encode()).hexdigest()[:24]
             refs=['daily-range:'+digest]
-        return Observation(status="PARTIAL" if partial else "OK", data={"material_id": args.material_id, "start_date": args.start_date, "end_date": args.end_date, "daily": selected, "known_total_cost": str(sums["total_cost"].quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)), "known_overall_gmv": str(sums["overall_gmv"].quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)), "roi": roi, "roi_note": "不可完整计算" if nulls else "不适用" if not sums["total_cost"] else "仅汇总已有记录" if partial else "完整记录", "missing_days": missing, "null_fields": nulls, "snapshot": "historical", "currency":"CNY", "synthetic": not bool(self.business_db)}, evidence_refs=refs)
+        return Observation(status="PARTIAL" if partial else "OK", data={"period":period, "data_from":dates[0], "data_through":dates[-1], "material_id": args.material_id, "start_date": args.start_date, "end_date": args.end_date, "daily": selected, "known_total_cost": str(sums["total_cost"].quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)), "known_overall_gmv": str(sums["overall_gmv"].quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)), "roi": roi, "roi_note": "不可完整计算" if nulls else "不适用" if not sums["total_cost"] else "仅汇总已有记录" if partial else "完整记录", "missing_days": missing, "null_fields": nulls, "snapshot": "historical", "currency":"CNY", "synthetic": not bool(self.business_db)}, evidence_refs=refs)
 
     async def analytics(self,args,ctx):
         from .analytics import execute

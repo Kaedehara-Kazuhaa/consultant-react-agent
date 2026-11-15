@@ -34,16 +34,17 @@ OK/PARTIAL/EMPTY/ERROR分别如何处理。
 
 ## 路由和修改验证
 
-先用conversation的显式意图补充路由，再加触发词匹配；日期补充也会加载material。新业务Skill若只有文档没有路由，可能永不被选中，必须补测试验证 `documents_loaded` 中实际包含该Skill，并验证正文进入provider状态。
+优先按conversation的已识别意图加载主要技能；关键词用于自定义技能和复核、人工等辅助技能。定义咨询不会仅因出现“达人”而加载查数技能；日期补充沿用已确认的单素材或统计意图。description及正文均传入模型，Trace保留名称、描述及版本。新业务Skill若只有文档没有路由，可能永不被选中，必须补测试验证 `documents_loaded` 中实际包含该Skill，并验证正文进入provider状态。
 
 修改流程：同步Git→修改Agent/Skill/知识→运行pytest及evals→检查Trace中的加载版本和工具动作→更新验收记录→提交并推送。文档和知识启动时加载，修改后重启服务；浏览器刷新不足以重载后端。
 
-## 当前六项技能
+## 当前七项技能
 
 | Skill | 关键合同 | 主要回归 |
 |---|---|---|
 | clarify | 一项授权候选，确认才查询，无依据不猜 | confirmation/denial/stale |
 | knowledge | 规则优先；来源、范围、假设可见 | usage/ROI/netROI |
+| analytics | 批量、排行、达人日报；分页不截断汇总 | batch/rank/influencer/future-range |
 | material | 明确对象和日期，每次授权 | completion/zero/null/missing |
 | diagnose | 只改明确槽位，重新取数 | date-correction/reopen |
 | feedback | 有效回答后的明确肯定 | no-false-resolution |

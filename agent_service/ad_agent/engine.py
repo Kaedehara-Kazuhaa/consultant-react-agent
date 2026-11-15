@@ -14,6 +14,7 @@ from .sessions import Sessions
 from .conversation import resolve_turn
 from .codex_provider import CodexProvider
 from .support import SupportLedger
+from .periods import bounded_period
 
 class Engine:
     def __init__(self, settings: Settings, business_tools, provider=None):
@@ -49,6 +50,14 @@ class Engine:
         rid = request.request_id
         started = time.monotonic()
         turn = resolve_turn(request.message, previous, context.business_day)
+        slots = turn['slots']
+        if turn['intent'] in {'material','analytics'} and slots.get('start_date') and slots.get('end_date'):
+            try:
+                _, end, period = bounded_period(slots['start_date'],slots['end_date'],context.business_day)
+                turn['period'] = period
+                if not period['entirely_future']:slots['end_date']=end.isoformat()
+            except ValueError:
+                pass  # Invalid input is handled by the typed reporting tools.
         issue=self.support.issue(owner,request.session_id,turn,previous)
         self.support.handoff_request(owner,request.session_id,rid,issue['id'],record=False)
         # Resolution by silence updates the issue, not the saved chat slots.
@@ -58,15 +67,26 @@ class Engine:
         permitted = set(self.profile.allowed_tools) & {t for s in skills for t in s.tools}
         if context.role=='guest':
             permitted &= {'search_knowledge','get_customer_context'}
-        state = {"message": request.message, "turn": turn, "previous": previous, "context": asdict(context), "agent_document": self.profile.instructions, "skills": [{"name": s.name, "instructions": s.body} for s in skills], "tools": [self.tools[n].schema() for n in sorted(permitted)], "observations": [], "decision_error": None}
+        state = {"message": request.message, "turn": turn, "previous": previous, "context": asdict(context), "agent_document": self.profile.instructions, "skills": [{"name": s.name, "description":s.description, "instructions": s.body} for s in skills], "tools": [self.tools[n].schema() for n in sorted(permitted)], "observations": [], "decision_error": None}
         self.store.emit(rid, "run_started", {"profile": self.profile.name, "profile_version": self.profile.digest, "mode": self.settings.provider, "context": asdict(context), "message": request.message})
-        self.store.emit(rid, "documents_loaded", {"skills": [{"name": s.name, "version": s.digest} for s in skills], "knowledge_version":self.knowledge_version, "allowed_tools": sorted(permitted)})
+        self.store.emit(rid, "documents_loaded", {"skills": [{"name": s.name, "description":s.description, "version": s.digest} for s in skills], "knowledge_version":self.knowledge_version, "allowed_tools": sorted(permitted)})
         self.store.emit(rid, "context_resolved", turn)
         seen, evidence = set(), set()
         actions = 0
         handoff_policy=None
 
         def finish(status, response, refs=(), reason="finished"):
+            notices=[]
+            if reason!='PERMISSION_DENIED' and turn.get('period',{}).get('notice'):
+                notices.append(turn['period']['notice'])
+            for item in state['observations']:
+                data=item['observation']['data']
+                note=data.get('period',{}).get('notice')
+                if note and not notices:notices.append(note)
+                if data.get('data_through') and (notices or data.get('period',{}).get('future_end')):
+                    note=f"本次区间内最新日报日期为{data['data_through']}，仅汇总已有记录，不代表实时完整数据。"
+                    if note not in notices:notices.append(note)
+            if notices:response='\n'.join(notices)+'\n\n'+response
             if turn.get('feedback')=='negative' and status=='ANSWERED_WAITING':
                 status='UNRESOLVED'
             signature=hashlib.sha256(json.dumps([o for o in state['observations'] if o['observation']['status'] in {'OK','PARTIAL'}],sort_keys=True,ensure_ascii=False).encode()).hexdigest()
@@ -90,6 +110,8 @@ class Engine:
         try:
             if context.role=='guest' and turn['intent'] in {'material','analytics'}:
                 return finish('UNRESOLVED','您当前为访客，可咨询通用业务规则。素材、达人及投放数据仅向已授权投手开放；测试时可切换为投手身份。',reason='PERMISSION_DENIED')
+            if turn.get('period',{}).get('entirely_future'):
+                return finish('COLLECTING','请告诉我您想查询的历史日期或截至今天的区间。',reason='FUTURE_RANGE')
             if context.role=='trader' and turn['intent']=='clarify' and previous.get('intent') in {'material','analytics'} and previous.get('last_business') and not previous.get('hypothesis_attempted'):
                 candidate=previous['last_business']['slots']
                 entity='达人' if candidate.get('entity')=='influencer' else '素材'
@@ -103,16 +125,16 @@ class Engine:
                 handoff_policy=self.support.handoff_request(owner,request.session_id,rid,issue['id'])
                 self.store.emit(rid,'handoff_policy',handoff_policy)
                 # Mixed requests first answer the explicit business question.
-                explicit_business=any(w in request.message.lower() for w in ['素材','达人','roi','gmv','消耗','状态','怎么算','口径','日报'])
+                explicit_business=turn['intent'] in {'material','analytics','knowledge'}
                 if not explicit_business:
-                    if not handoff_policy['eligible']:
-                        return finish('UNRESOLVED','您近期多次提出转人工请求，本次继续由智能体协助。请说明尚未解决的问题或需要核对的数据。',reason='HISTORY_RESTRICTED')
                     if handoff_policy['allow']:
                         return finish('HANDOFF_PENDING','正在为您转接。',reason='HANDOFF_NOTICE_ONLY')
-                    prompts=['我先协助您处理，请说明遇到的具体问题。','请补充需要查询的素材或达人编号，以及日期或需要解释的规则。','请指出前面答复中仍未解决的部分，我会继续核对。']
+                    prompts=['我在这里帮您一起看看。您遇到了什么具体问题？想了解业务规则、指标怎么算，或者查询投放数据，都可以直接告诉我。',
+                             '您可以先简单说说想了解什么，我来帮您梳理。咨询规则时，说出业务环节或指标就好；如果需要查数据，再补充素材或达人编号和日期即可。',
+                             '我们继续一起核对。是某条规则还不清楚，还是查询结果有疑问？告诉我仍未解决的部分，我会有针对性地帮您处理。']
                     index=min(handoff_policy['attempts'],len(prompts)-1)
                     self.support.update(issue['id'],rid,'COLLECTING',effective=True,signature='handoff-guidance-'+str(index))
-                    return finish('COLLECTING',prompts[index],reason='HANDOFF_INTERCEPTED')
+                    return finish('COLLECTING',prompts[index],reason='HANDOFF_INTERCEPTED' if handoff_policy['eligible'] else 'HISTORY_RESTRICTED')
             if turn["intent"] == "feedback":
                 if turn.get('feedback')=='negative':
                     return finish('UNRESOLVED','已将该问题更新为未解决，请说明需要继续核对的部分。',reason='NEGATIVE_FEEDBACK')
@@ -160,7 +182,7 @@ class Engine:
                         return finish("UNRESOLVED", "重复处理没有产生新依据，本轮已停止。", reason="REPEATED_ACTION")
                     seen.add(signature)
                     actions += 1
-                    self.store.emit(rid, "action", {"step": actions, "tool": tool.name, "arguments": args.model_dump()})
+                    self.store.emit(rid, "action", {"step": actions, "tool": tool.name, "description":tool.description, "arguments": args.model_dump()})
                     tool_start = time.monotonic()
                     obs = Observation(status="ERROR", error_code="TOOL_FAILED")
                     for attempt in range(self.settings.retries+1):

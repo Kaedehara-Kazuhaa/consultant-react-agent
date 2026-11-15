@@ -32,7 +32,7 @@ def resolve_turn(message, previous, business_day):
                     break
     negative = any(w in text for w in NEGATIVE)
     feedback = "positive" if normalized in POSITIVE else "negative" if negative else None
-    is_rule = any(w in text for w in ["怎么算", "是什么", "定义", "口径", "怎么查", "如何查"])
+    is_rule = any(w in text for w in ["怎么算", "是什么", "定义", "口径", "怎么查", "如何查", "规则", "含义", "计算方法", "计算方式", "查询方法"])
     human = any(w in text for w in ['转人工','人工客服','人工服务','找人工','找真人','真人客服','转接人工','人工坐席'])
     negated = bool(re.search(r'(?:不要|不用|不必|无需|不想|别|不需要)(?:再|给我|帮我)?(?:转|找|接通|联系)?(?:人工|真人)',text))
     human_rule = human and any(w in text for w in ['规则','条件','次数','是什么','为什么','怎么判断','如何判断']) and not any(w in text for w in ['我要','帮我转','给我转','现在转'])

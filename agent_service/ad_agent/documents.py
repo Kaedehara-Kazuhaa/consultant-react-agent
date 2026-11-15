@@ -22,9 +22,15 @@ class Profile:
 
     def select(self, message: str, intent: str | None = None) -> tuple[Skill, ...]:
         chosen = tuple(s for s in self.skills if any(t.lower() in message.lower() for t in s.triggers))
-        # Intent routing includes date-only continuations that have no lexical trigger.
+        # Explicit business intent wins over broad words such as ROI or 达人.
+        builtins={'knowledge','material','analytics','clarify','diagnose','feedback','handoff'}
         names = {s.name for s in chosen} | {intent}
-        if intent == "material" and any(w in message for w in ["不对", "有误", "没解决", "为什么是0"]):
+        if intent in builtins:
+            names={s.name for s in chosen if s.name not in builtins} | {intent}
+            if intent in {'material','analytics'} and any(w in message.lower() for w in ['净roi','口径','退款']):
+                names.add('knowledge')
+            if any(s.name=='handoff' for s in chosen):names.add('handoff')
+        if intent in {"material","analytics"} and any(w in message for w in ["不对", "有误", "没解决", "未解决", "为什么是0"]):
             names.add("diagnose")
         if intent == "feedback":
             names.add("feedback")
@@ -66,6 +72,8 @@ def load_profile(root: Path, registered_tools: set[str]) -> Profile:
             raise ValueError("Invalid skill directory name")
         sm, sb, sh = read_document(root / "skills" / name / "SKILL.md", root)
         tools = strings(sm, "tools")
+        if not isinstance(sm.get('description'),str) or not sm['description'].strip():
+            raise ValueError('Skill description must be a nonempty string')
         if sm.get("name") != name or not set(tools) <= allowed:
             raise ValueError("Skill name mismatch or attempted tool expansion")
         skills.append(Skill(name, str(sm.get("description", "")), strings(sm, "triggers"), tools, sb, sh))

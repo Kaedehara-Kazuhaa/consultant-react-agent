@@ -62,7 +62,7 @@ class Settings:
             provider=provider,
             base_url=os.getenv("MODEL_BASE_URL",model_local.get('base_url','')), model=os.getenv("MODEL_NAME",model_local.get('model','')),
             api_key=secret('MODEL_API_KEY','key_file'),api_token=secret('AGENT_API_TOKEN','token_file'),
-            local_browser_auth=model_local.get('local_browser_auth',False) is True,
+            local_browser_auth=os.getenv('AGENT_LOCAL_BROWSER_AUTH','1' if model_local.get('local_browser_auth',False) is True else '0')=='1',
             test_mode=os.getenv('AGENT_TEST_MODE','1' if model_local.get('test_mode') is True else '0')=='1',
             model_thinking=os.getenv('MODEL_THINKING',model_local.get('thinking','')),
             model_max_tokens=int(os.getenv('MODEL_MAX_TOKENS',str(model_local.get('max_tokens',2048)))),

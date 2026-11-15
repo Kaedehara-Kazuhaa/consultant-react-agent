@@ -7,7 +7,7 @@
       "怎么算"
     ],
     "title": "整体支付ROI",
-    "content": "本项目的整体支付ROI沿用投放数据口径：区间整体支付GMV合计÷区间消耗合计，属于投产比/ROAS类指标，不是财务利润ROI。区间先汇总再相除，不平均逐日ROI。消耗为0不适用；必需字段NULL不完整计算。",
+    "content": "整体支付ROI沿用投放数据口径：区间整体支付GMV合计÷区间消耗合计，属于投产比/ROAS类指标，不是财务利润ROI。区间先汇总再相除，不平均逐日ROI。消耗为0不适用；必需字段NULL不完整计算。",
     "scope": "品牌方投手客服；素材/达人查询",
     "source": "dump日报overall_gmv/total_cost与overall_roi一致性校验；Google Ads ROAS定义：https://support.google.com/google-ads/answer/6268637?hl=zh-Hans",
     "version": "2",
@@ -43,7 +43,7 @@
       "成交金额"
     ],
     "title": "整体GMV",
-    "content": "GMV通常为统计期内按既定口径计算的商品成交总额；同价单品可表示为成交价×售出数量，多商品按各自金额求和。折扣、退款、运费和税费是否包含取决于平台口径。本项目不重建订单GMV，只按明确日期范围汇总dump已有overall_gmv字段；不把它当利润、净收入或净成交。",
+    "content": "GMV为统计期内按既定口径计算的商品成交总额。同价单品可表示为成交价×售出数量，多商品按各自成交金额求和。折扣、退款、运费和税费是否包含取决于业务统计口径。区间GMV按已有成交金额求和，不等于利润或净收入。",
     "scope": "品牌方投手客服；素材/达人查询",
     "source": "Shopify GMV定义：https://www.shopify.com/blog/gross-merchandise-value；本项目overall_gmv字段",
     "version": "2",
@@ -436,5 +436,27 @@
       "guest",
       "trader"
     ]
+  },
+  {
+    "id": "knowledge:relative-period:v1",
+    "title": "常用相对时间范围",
+    "keywords": [
+      "半年",
+      "最近",
+      "过去",
+      "近一个月",
+      "近三个月",
+      "近一年"
+    ],
+    "content": "相对日期以对话当天（北京时间）为基准，起止均含当天。近N天为当天及前N-1天；近N周为最近7N天；近N个月按自然月回退N个月后加一天至当天，月末回退到目标月最后一天；近半年等同近6个月，近一年等同近12个月。回答展示绝对日期。截止日期超过已有记录覆盖时仍按用户完整区间查询，只汇总已有记录并提示覆盖限制，不将其视为日期缺失。",
+    "source": "业务查询约定",
+    "version": "1",
+    "scope": "素材及达人查询",
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ],
+    "rule_type": "业务时间解析约定"
   }
 ]

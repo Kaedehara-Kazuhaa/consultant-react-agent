@@ -1,5 +1,6 @@
 """Conservative, deterministic slot resolver; never derives authorization from text."""
 from datetime import date, timedelta
+import calendar
 import re
 import time
 
@@ -22,8 +23,27 @@ def resolve_turn(message, previous, business_day):
         explicit_ids=list(dict.fromkeys(explicit_ids+re.findall(r'M\d{4}|\d+',shared[1],re.I)))
     dates = re.findall(r"\d{4}-\d{2}-\d{2}", text)
     today = date.fromisoformat(business_day)
+    relative = None
     if not dates:
-        if any(w in text for w in ['近7天','最近7天','最近七天','近七天']):
+        relative = re.search(r'(?:最近|近|过去)(半|[一二两三四五六七八九十]+|\d+)\s*(天|周|个?月|年)', text)
+        if relative:
+            raw, unit = relative.groups()
+            number = {'半':.5,'一':1,'二':2,'两':2,'三':3,'四':4,'五':5,'六':6,'八':8,'九':9,'七':7,'十':10,'十二':12}.get(raw)
+            if number is None:
+                digits={'一':1,'二':2,'两':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9}
+                if '十' in raw:
+                    left,right=raw.split('十',1);number=digits.get(left,1)*10+digits.get(right,0)
+                else:number=int(raw)
+            if number==.5 and '月' in unit:
+                begin=today-timedelta(days=14)
+            elif '月' in unit or unit=='年':
+                months=int(number*(12 if unit=='年' else 1))
+                index=today.year*12+today.month-1-months
+                year,month=divmod(index,12);month+=1
+                begin=date(year,month,min(today.day,calendar.monthrange(year,month)[1]))+timedelta(days=1)
+            else:begin=today-timedelta(days=max(1,int(number*(7 if unit=='周' else 1)))-1)
+            dates=[begin.isoformat(),today.isoformat()]
+        elif any(w in text for w in ['近7天','最近7天','最近七天','近七天']):
             dates = [(today-timedelta(days=6)).isoformat(), today.isoformat()]
         else:
             for word, offset in [("前天",2),("昨天",1),("今天",0)]:
@@ -33,12 +53,13 @@ def resolve_turn(message, previous, business_day):
     negative = any(w in text for w in NEGATIVE)
     feedback = "positive" if normalized in POSITIVE else "negative" if negative else None
     is_rule = any(w in text for w in ["怎么算", "是什么", "定义", "口径", "怎么查", "如何查", "规则", "含义", "计算方法", "计算方式", "查询方法"])
-    human = any(w in text for w in ['转人工','人工客服','人工服务','找人工','找真人','真人客服','转接人工','人工坐席'])
+    human = normalized in {'人工','真人'} or any(w in text for w in ['转人工','人工客服','人工服务','找人工','找真人','真人客服','转接人工','人工坐席'])
     negated = bool(re.search(r'(?:不要|不用|不必|无需|不想|别|不需要)(?:再|给我|帮我)?(?:转|找|接通|联系)?(?:人工|真人)',text))
     human_rule = human and any(w in text for w in ['规则','条件','次数','是什么','为什么','怎么判断','如何判断']) and not any(w in text for w in ['我要','帮我转','给我转','现在转'])
     if human_rule:is_rule=True
     handoff = human and not negated and not human_rule
     date_only = bool(dates) and not re.sub(r"\d{4}-\d{2}-\d{2}|最近七天|最近7天|近七天|近7天|前天|昨天|今天|改成|改为|是|呢|的|[\s，。？?！!]", "", text)
+    if relative and not text.replace(relative.group(0),'').strip(' ，。？！!?'):date_only=True
     continuation = old_intent in {"material","analytics"} and (date_only or negative or any(w in text for w in ["这个素材", "该素材", "这个达人", "它", "改成", "改为", "不是", "应该是", "日期是"]))
     paging=re.search(r'第\s*(\d+)\s*页',text)
     if old_intent=='analytics' and paging:continuation=True
@@ -104,4 +125,4 @@ def resolve_turn(message, previous, business_day):
             slots["query"] = "performance"
         slots.setdefault("query", "performance")
     return {"intent":intent, "slots":slots, "feedback":feedback, "handoff_requested":handoff,
-            "multiple_materials":len(explicit_ids)>1, "ambiguous_dates":len(dates)>2, "inherited":continuation or bool(confirmed_suggestion)}
+            "multiple_materials":len(explicit_ids)>1, "ambiguous_dates":len(dates)>2, "explicit_dates":bool(dates), "inherited":continuation or bool(confirmed_suggestion)}

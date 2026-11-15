@@ -79,3 +79,55 @@ def test_preview_access_and_no_identity_fallback(tmp_path):
    forged=await c.post('/api/run',headers=h,json={'message':'hi','request_id':uuid4().hex,'role':'trader'})
    assert forged.status_code==422
  asyncio.run(check())
+
+
+def test_relative_calendar_periods():
+ from ad_agent.conversation import resolve_turn
+ for phrase,start in [('近半年','2026-05-17'),('最近30天','2026-10-18'),('近三个月','2026-08-17'),('近一年','2025-11-17')]:
+  t=resolve_turn('查询素材339'+phrase+'的GMV',{},'2026-11-16')
+  assert t['slots']['start_date']==start and t['slots']['end_date']=='2026-11-16'
+ assert resolve_turn('人工',{},'2026-11-16')['handoff_requested']
+
+
+def test_failed_query_context_reaches_handoff_composer(tmp_path):
+ class Compose(DemoProvider):
+  async def compose(self,contract):
+   self.last=contract
+   return {'response':'友好答复','decision_summary':'遵守权限'}
+ e=build_engine(Settings(trace_db=tmp_path/'r.sqlite'));e.provider=Compose()
+ ask(e,'查询素材339的GMV','guest')
+ ask(e,'人工','guest')
+ assert e.provider.last['previous_request']['slots']['material_id']=='339'
+ assert e.provider.last['previous_request']['status']=='UNRESOLVED'
+
+
+def test_reporting_result_survives_premature_model_conclusion(tmp_path):
+ from ad_agent.providers import CompatibleProvider
+ class Model(CompatibleProvider):
+  def __init__(self):pass
+  async def decide(self,state):
+   return Decision(action_type='unresolved',response='依据不足',decision_summary='提前结束')
+  async def compose(self,contract):
+   assert 'known_overall_gmv' not in contract['allowed_content']
+   return {'response':'已依据查询结果回答','decision_summary':'采用核验数据'}
+ e=build_engine(Settings(trace_db=tmp_path/'r.sqlite'));e.provider=Model()
+ r=ask(e,'查询素材M0001在2026-03-01至2026-11-16的GMV')
+ assert r['status']=='ANSWERED_WAITING' and r['actions']==1
+
+
+def test_reset_identity_removes_context_and_resolution(tmp_path):
+ async def check():
+  s=Settings(trace_db=tmp_path/'r.sqlite',test_mode=True,local_browser_auth=True)
+  e=build_engine(s)
+  async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app(s,e),client=('127.0.0.1',123)),base_url='http://127.0.0.1') as c:
+   old=(await c.post('/api/test/open',json={'role':'trader'})).json()['token']
+   h={'X-Test-Session':old}
+   await c.post('/api/run',headers=h,json={'message':'素材M0001今天GMV','session_id':'old','request_id':uuid4().hex})
+   assert (await c.post('/api/test/close',json={'token':old})).status_code==200
+   assert (await c.get('/api/knowledge',headers=h)).status_code==409
+   new=(await c.post('/api/test/open',json={'role':'trader'})).json()['token']
+   r=(await c.get('/api/support/new',headers={'X-Test-Session':new})).json()
+   assert r['issues']==[] and r['handoff_request_count']==0
+   with e.support.connect() as db:
+    assert db.execute('SELECT count(*) FROM conversation_state').fetchone()[0]==0
+ asyncio.run(check())

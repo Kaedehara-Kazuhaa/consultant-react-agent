@@ -22,3 +22,7 @@
 [克隆运行与演示说明](agent_service/docs/portfolio.md) · [功能测试输入与预期](agent_service/docs/testing-workbench.md)。本地端口适合运行和现场展示；GitHub分享源码，公开在线访问需另行部署后端。
 
 核心实现包含可自定义Agent/Skill文档、按意图选择技能、权限与转人工策略、ReAct工具循环及结构化Trace。Trace显示具体技能和工具名称及观察结果；不输出模型隐藏思维链。未来截止日会提醒并裁到对话当天，保留已有记录及最新日报日期。
+
+## 内部测试平台
+
+提供业务工作台、资源预览和知识库三个栏目。[测试方式、角色与安全边界](agent_service/docs/internal-testing.md)。真实API模式由模型组织答复，程序控制权限、参数确认和转人工；可折叠Trace记录决策摘要、技能/工具/知识版本及拦截原因。

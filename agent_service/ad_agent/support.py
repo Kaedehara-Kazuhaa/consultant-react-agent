@@ -106,7 +106,7 @@ class SupportLedger:
                 db.execute("INSERT OR IGNORE INTO support_events VALUES(?,'handoff_request',?,?,?,?,?)",(request_id,owner,session,issue_id,now,''))
             attempts=db.execute('SELECT attempts FROM support_issues WHERE id=?',(issue_id,)).fetchone()[0]
             current=db.execute("SELECT COUNT(*) FROM support_events WHERE owner=? AND session=? AND kind='handoff_request'",(owner,session)).fetchone()[0]
-            return {'historical_count':frozen['historical_count'],'session_request_count':current,'eligible':bool(frozen['eligible']),'attempts':attempts,'allow':bool(frozen['eligible']) and attempts>=self.settings.handoff_attempts}
+            return {'historical_count':frozen['historical_count'],'session_request_count':current,'eligible':bool(frozen['eligible']),'attempts':attempts,'allow':bool(frozen['eligible']) and current>=self.settings.handoff_attempts}
 
     def state(self, owner, session):
         self.reconcile()

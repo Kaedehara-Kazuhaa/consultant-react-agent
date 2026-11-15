@@ -5,9 +5,7 @@
       {
         "message": "你好，查素材M0001消耗",
         "status": "COLLECTING",
-        "tools": [
-          "resolve_material"
-        ],
+        "tools": [],
         "contains": [
           "日期"
         ]

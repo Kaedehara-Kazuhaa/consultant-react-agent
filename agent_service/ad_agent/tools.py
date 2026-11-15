@@ -104,7 +104,9 @@ class BusinessTools:
     async def search(self, args: Search, ctx):
         hits = []
         for row in self.knowledge:
-            score = sum(len(word) for word in row["keywords"] if word.lower() in args.question.lower())
+            if ctx.role not in row.get('audience',['guest','trader']):continue
+            specific=[word for word in row['keywords'] if word not in {'怎么算','是什么','规则','定义','指标'}]
+            score = sum(len(word) for word in specific if word.lower() in args.question.lower())
             if score:
                 hits.append((score,row))
         entries = [r for _,r in sorted(hits,key=lambda h:(-h[0],h[1]['id']))[:3]]

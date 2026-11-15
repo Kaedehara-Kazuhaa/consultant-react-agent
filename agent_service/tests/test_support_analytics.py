@@ -62,7 +62,7 @@ def test_handoff_counts_dedup_restart_history_scope_and_frozen_eligibility(tmp_p
     assert e.support.state('u:B1','session1')['handoff_request_count']==1
     assert run(e,'转人工')['status']=='COLLECTING'
     e=build_engine(settings)
-    assert run(e,'转人工')['status']=='COLLECTING'
+    assert run(e,'转人工')['status']=='HANDOFF_PENDING'
     result=run(e,'转人工')
     assert result['status']=='HANDOFF_PENDING' and result['response']=='正在为您转接。'
     assert run(e,'转人工',session='new')['stop_reason']=='HISTORY_RESTRICTED'

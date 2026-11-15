@@ -12,7 +12,7 @@ GitHub仓库地址用于分享源码；本地端口地址不能让别人直接�
 ```powershell
 git clone https://github.com/Kaedehara-Kazuhaa/consultant-react-agent.git
 cd consultant-react-agent
-git checkout codex/local-workbench
+git checkout main
 .\Setup.cmd
 .\Start.cmd --data synthetic --provider demo --test
 ```

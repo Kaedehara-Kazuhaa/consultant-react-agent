@@ -84,10 +84,11 @@ def resolve_turn(message, previous, business_day):
         intent = "feedback"
     elif handoff:
         intent, slots = "handoff", {}
-    elif any(w in text.lower() for w in ["roi", "指标", "消耗"]):
+    elif any(w in text.lower() for w in ["roi", "gmv", "指标", "消耗"]):
         intent, slots = "knowledge", {}
     else:
         intent, slots = "clarify", {}
+    if intent=='analytics' and any(w in text for w in ['全部','所有']):slots['scope_all']=True
     if intent == 'analytics' and dates:
         slots.update(start_date=dates[0],end_date=dates[-1])
     if intent == "material":

@@ -12,7 +12,11 @@
     "source": "dump日报overall_gmv/total_cost与overall_roi一致性校验；Google Ads ROAS定义：https://support.google.com/google-ads/answer/6268637?hl=zh-Hans",
     "version": "2",
     "rule_type": "数据字段校验与投产比定义；平台归因细节待确认",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:cost:v1",
@@ -26,7 +30,11 @@
     "source": "当前用户确认需求及已实现服务端规则；未规定参数见docs/decisions.md",
     "version": "3",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": false
+    "assumption": false,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:gmv:v2",
@@ -40,7 +48,11 @@
     "source": "Shopify GMV定义：https://www.shopify.com/blog/gross-merchandise-value；本项目overall_gmv字段",
     "version": "2",
     "rule_type": "通用定义与字段汇总；平台包含项待确认",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:zero:v1",
@@ -55,7 +67,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:null:v1",
@@ -69,7 +85,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:missing:v1",
@@ -83,7 +103,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:partial:v1",
@@ -97,7 +121,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:date:v1",
@@ -112,7 +140,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:week:v1",
@@ -126,7 +158,11 @@
     "source": "当前用户确认需求及已实现服务端规则；未规定参数见docs/decisions.md",
     "version": "3",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": false
+    "assumption": false,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:range:v1",
@@ -140,7 +176,11 @@
     "source": "当前用户确认需求及已实现服务端规则；未规定参数见docs/decisions.md",
     "version": "3",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": false
+    "assumption": false,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:snapshot:v1",
@@ -155,7 +195,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:state:v1",
@@ -169,7 +213,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:how_cost:v1",
@@ -184,7 +232,11 @@
     "source": "当前用户确认需求及已实现服务端规则；未规定参数见docs/decisions.md",
     "version": "3",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:how_status:v1",
@@ -198,7 +250,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:ids:v1",
@@ -212,7 +268,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:permissions:v1",
@@ -226,7 +286,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:correction:v1",
@@ -241,7 +305,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:feedback:v1",
@@ -255,7 +323,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:silence:v1",
@@ -269,7 +341,11 @@
     "source": "当前用户确认需求及已实现服务端规则；未规定参数见docs/decisions.md",
     "version": "3",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": false
+    "assumption": false,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:handoff:v1",
@@ -278,12 +354,16 @@
       "转人工"
     ],
     "title": "人工处理策略",
-    "content": "先尝试处理具体问题；约3次有效推进后历史资格允许则输出“正在为您转接。”，状态为等待转接。本期不调用人工接口。",
+    "content": "优先协助处理用户问题；本会话累计人工请求达到配置阈值（默认第3次），且服务端资格允许时输出“正在为您转接。”并标记等待转接；此阶段仅输出提示，不调用真实人工接口。",
     "scope": "品牌方投手客服；素材/达人查询",
     "source": "当前用户确认需求及已实现服务端规则；未规定参数见docs/decisions.md",
-    "version": "3",
+    "version": "4",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": false
+    "assumption": false,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:history:v1",
@@ -297,7 +377,10 @@
     "source": "当前用户确认需求及已实现服务端规则；未规定参数见docs/decisions.md",
     "version": "3",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "tester"
+    ]
   },
   {
     "id": "knowledge:exclusive:v1",
@@ -312,7 +395,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:net:v1",
@@ -326,7 +413,11 @@
     "source": "项目PRD V1.2 及显式开发假设",
     "version": "1",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": true
+    "assumption": true,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   },
   {
     "id": "knowledge:multi:v1",
@@ -340,6 +431,10 @@
     "source": "当前用户确认需求及已实现服务端规则；未规定参数见docs/decisions.md",
     "version": "3",
     "rule_type": "项目约定，非外部平台官方规则",
-    "assumption": false
+    "assumption": false,
+    "audience": [
+      "guest",
+      "trader"
+    ]
   }
 ]

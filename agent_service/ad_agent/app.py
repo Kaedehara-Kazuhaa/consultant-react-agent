@@ -69,7 +69,10 @@ def create_app(settings=None, engine=None):
 
     def test_identity(request):
         token = request.headers.get('X-Test-Session') if request else None
-        if not token:return None
+        if not token:
+            if settings.test_mode and request and request.url.path not in {'/api/test/open','/api/test/close'}:
+                raise HTTPException(401,'请先创建测试身份')
+            return None
         if not settings.test_mode or not local_browser(request):
             raise HTTPException(403,'测试身份仅在本机测试模式可用')
         identity = test_sessions.get(token)
@@ -106,6 +109,7 @@ def create_app(settings=None, engine=None):
     @app.get("/")
     async def page(request:HTTPRequest):
         response=FileResponse(frontend/'index.html' if (frontend/'index.html').exists() else ROOT/'web/index.html')
+        response.headers['Cache-Control']='no-store'
         if settings.api_token and local_browser(request):
             response.set_cookie('consultant_local',cookie_value(),httponly=True,samesite='strict',path='/')
         return response
@@ -144,6 +148,24 @@ def create_app(settings=None, engine=None):
             raise HTTPException(409,'请先更新本地达人快照')
         rows=[r for r in rows if not q or q==r['id'] or q in (r['name'] or '')]
         return {'items':rows[(page-1)*20:page*20],'total':len(rows),'page':page}
+
+    @app.get('/api/resources')
+    async def resources(request:HTTPRequest,authorization:str|None=Header(default=None)):
+        auth(authorization,request)
+        if not settings.test_mode or not local_browser(request):
+            raise HTTPException(403,'资源预览仅供本机内部测试')
+        docs=[{'id':'agent','kind':'agent','name':'AGENTS.md','content':engine.profile.instructions,'version':engine.profile.digest}]
+        docs += [{'id':'skill:'+s.name,'kind':'skill','name':s.name,'description':s.description,'tools':list(s.tools),'triggers':list(s.triggers),'content':s.body,'version':s.digest} for s in engine.profile.skills]
+        docs += [{'id':'tool:'+t.name,'kind':'tool','name':t.name,'description':t.description,'content':json.dumps(t.schema(),ensure_ascii=False,indent=2)} for t in engine.tools.values()]
+        return {'documents':docs,'field_help':{'description':'技能用途与适用边界','triggers':'辅助关键词；显式业务意图优先','tools':'服务端注册工具白名单','version':'内容哈希，用于关联Trace与资源版本','parameters':'工具输入JSON Schema；身份和账户不接受模型指定'}}
+
+    @app.get('/api/knowledge')
+    async def knowledge(request:HTTPRequest,q:str=Query(default='',max_length=200),authorization:str|None=Header(default=None)):
+        auth(authorization,request)
+        if not settings.test_mode or not local_browser(request):
+            raise HTTPException(403,'知识库预览仅供本机内部测试')
+        entries=[r for r in engine.business_tools.knowledge if not q or q.lower() in json.dumps(r,ensure_ascii=False).lower()]
+        return {'entries':entries,'version':engine.knowledge_version,'total':len(entries)}
 
     @app.get("/api/traces/{request_id}")
     async def traces(request_id: str,request:HTTPRequest, authorization: str | None = Header(default=None)):

@@ -26,6 +26,8 @@ class AnalyticsQuery(Arguments):
 
 
 def source_rows(tools, ctx, entity):
+    if ctx.role!='trader':
+        return [],[]
     if tools.business_db:
         with closing(sqlite3.connect(Path(tools.business_db).resolve().as_uri()+'?mode=ro',uri=True)) as db:
             db.row_factory=sqlite3.Row

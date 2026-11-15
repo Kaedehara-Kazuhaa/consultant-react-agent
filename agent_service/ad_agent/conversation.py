@@ -33,7 +33,11 @@ def resolve_turn(message, previous, business_day):
     negative = any(w in text for w in NEGATIVE)
     feedback = "positive" if normalized in POSITIVE else "negative" if negative else None
     is_rule = any(w in text for w in ["怎么算", "是什么", "定义", "口径", "怎么查", "如何查"])
-    handoff = "转人工" in text
+    human = any(w in text for w in ['转人工','人工客服','人工服务','找人工','找真人','真人客服','转接人工','人工坐席'])
+    negated = bool(re.search(r'(?:不要|不用|不必|无需|不想|别|不需要)(?:再|给我|帮我)?(?:转|找|接通|联系)?(?:人工|真人)',text))
+    human_rule = human and any(w in text for w in ['规则','条件','次数','是什么','为什么','怎么判断','如何判断']) and not any(w in text for w in ['我要','帮我转','给我转','现在转'])
+    if human_rule:is_rule=True
+    handoff = human and not negated and not human_rule
     date_only = bool(dates) and not re.sub(r"\d{4}-\d{2}-\d{2}|最近七天|最近7天|近七天|近7天|前天|昨天|今天|改成|改为|是|呢|的|[\s，。？?！!]", "", text)
     continuation = old_intent in {"material","analytics"} and (date_only or negative or any(w in text for w in ["这个素材", "该素材", "这个达人", "它", "改成", "改为", "不是", "应该是", "日期是"]))
     paging=re.search(r'第\s*(\d+)\s*页',text)
@@ -42,8 +46,10 @@ def resolve_turn(message, previous, business_day):
     influencer='达人' in text
     analytics=(not is_rule) and (influencer or rank or len(explicit_ids)>1 or '批量' in text or '全部素材' in text or (continuation and old_intent=='analytics'))
     confirmed_suggestion = previous.get("suggestion") if normalized in {"是", "是的", "对", "确认", "就是这个"} and previous.get('suggestion_expires_at',0)>time.time() else None
-    if confirmed_suggestion:
-        intent, slots = "material", dict(confirmed_suggestion)
+    if handoff and not (explicit_ids or dates or influencer or rank or any(w in text.lower() for w in ['roi','gmv','消耗','状态'])):
+        intent, slots = 'handoff', {}
+    elif confirmed_suggestion:
+        intent, slots = previous.get('suggestion_intent','material'), dict(confirmed_suggestion)
     elif is_rule:
         intent, slots = "knowledge", {}
     elif analytics:

@@ -17,6 +17,7 @@ class Context:
     accounts: tuple[str, ...]
     business_day: str
     session_id: str
+    role: str = 'trader'
 
 class Arguments(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -84,6 +85,8 @@ class BusinessTools:
         }
 
     def records(self, ctx: Context, material_id):
+        if ctx.role!='trader':
+            return None,[]
         if self.business_db:
             uri = Path(self.business_db).resolve().as_uri() + "?mode=ro"
             with closing(sqlite3.connect(uri, uri=True)) as db:
@@ -107,6 +110,8 @@ class BusinessTools:
         return Observation(status="OK" if entries else "EMPTY", data={"entries": entries}, evidence_refs=[r["id"] for r in entries])
 
     def catalog(self,ctx,q='',page=1):
+        if ctx.role!='trader':
+            return {'items':[],'total':0,'page':page,'page_size':20,'brand_id':ctx.brand_id,'account_count':0}
         size=20
         if self.business_db:
             with closing(sqlite3.connect(Path(self.business_db).resolve().as_uri()+'?mode=ro',uri=True)) as db:
@@ -172,6 +177,8 @@ class BusinessTools:
         return await asyncio.to_thread(execute,self,args,ctx)
 
     async def customer_context(self, args, ctx):
+        if ctx.role!='trader':
+            return Observation(status='EMPTY',data={'message':'访客不能读取用户业务上下文'})
         if self.customer_context_file:
             rows = await asyncio.to_thread(lambda: json.loads(Path(self.customer_context_file).read_text(encoding="utf-8")))
             candidates = []

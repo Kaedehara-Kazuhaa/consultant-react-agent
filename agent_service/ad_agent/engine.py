@@ -56,6 +56,8 @@ class Engine:
             previous=dict(previous,last_status=issue['status'])
         skills = self.profile.select(request.message, turn["intent"])
         permitted = set(self.profile.allowed_tools) & {t for s in skills for t in s.tools}
+        if context.role=='guest':
+            permitted &= {'search_knowledge','get_customer_context'}
         state = {"message": request.message, "turn": turn, "previous": previous, "context": asdict(context), "agent_document": self.profile.instructions, "skills": [{"name": s.name, "instructions": s.body} for s in skills], "tools": [self.tools[n].schema() for n in sorted(permitted)], "observations": [], "decision_error": None}
         self.store.emit(rid, "run_started", {"profile": self.profile.name, "profile_version": self.profile.digest, "mode": self.settings.provider, "context": asdict(context), "message": request.message})
         self.store.emit(rid, "documents_loaded", {"skills": [{"name": s.name, "version": s.digest} for s in skills], "knowledge_version":self.knowledge_version, "allowed_tools": sorted(permitted)})
@@ -76,10 +78,24 @@ class Engine:
             suggestion = next((o['observation']['data'].get('suggestion') for o in state['observations'] if o['tool']=='get_customer_context'),None)
             suggestion_expires_at = next((o['observation']['data'].get('suggestion_expires_at',0) for o in state['observations'] if o['tool']=='get_customer_context'),0)
             is_feedback = turn['intent'] in {'feedback','handoff'}
-            self.sessions.save(owner, request.session_id, {"intent":previous.get('intent') if is_feedback else turn["intent"], "slots":previous.get('slots',{}) if is_feedback else turn["slots"], "issue_id":issue['id'], "suggestion":suggestion, "suggestion_expires_at":suggestion_expires_at, "hypothesis_attempted":bool(suggestion or (turn['intent']=='clarify' and previous.get('hypothesis_attempted'))), "last_status":status, "last_request_id":rid})
+            last_business = previous.get('last_business')
+            if turn['intent'] in {'material','analytics'} and refs and status=='ANSWERED_WAITING':
+                last_business={'intent':turn['intent'],'slots':turn['slots']}
+            if reason=='PREVIOUS_QUERY_HYPOTHESIS':
+                suggestion=last_business['slots']
+                suggestion_expires_at=time.time()+1800
+            self.sessions.save(owner, request.session_id, {"last_business":last_business, "suggestion_intent":last_business["intent"] if reason=="PREVIOUS_QUERY_HYPOTHESIS" else "material", "intent":previous.get('intent') if is_feedback else turn["intent"], "slots":previous.get('slots',{}) if is_feedback else turn["slots"], "issue_id":issue['id'], "suggestion":suggestion, "suggestion_expires_at":suggestion_expires_at, "hypothesis_attempted":bool(suggestion or (turn['intent']=='clarify' and previous.get('hypothesis_attempted'))), "last_status":status, "last_request_id":rid})
             return result
 
         try:
+            if context.role=='guest' and turn['intent'] in {'material','analytics'}:
+                return finish('UNRESOLVED','您当前为访客，可咨询通用业务规则。素材、达人及投放数据仅向已授权投手开放；测试时可切换为投手身份。',reason='PERMISSION_DENIED')
+            if context.role=='trader' and turn['intent']=='clarify' and previous.get('intent') in {'material','analytics'} and previous.get('last_business') and not previous.get('hypothesis_attempted'):
+                candidate=previous['last_business']['slots']
+                entity='达人' if candidate.get('entity')=='influencer' else '素材'
+                target=candidate.get('material_id') or '、'.join(candidate.get('ids',[])) or candidate.get('name') or '汇总'
+                period=candidate.get('start_date','')
+                return finish('COLLECTING',f'请说明您的具体需求和查询条件。您是否对上次查询的{entity}{target}（{period or "投放状态"}）结果有疑问？请确认。',reason='PREVIOUS_QUERY_HYPOTHESIS')
             if turn.get('feedback')=='negative':
                 self.support.update(issue['id'],rid,'UNRESOLVED',feedback='negative')
                 self.store.emit(rid,'issue_reopened',{'issue_id':issue['id'],'status':'UNRESOLVED'})
@@ -164,6 +180,10 @@ class Engine:
                     evidence.update(obs.evidence_refs)
                     self.store.emit(rid, "observation", {"step": actions, "tool": tool.name, **obs.model_dump(), "elapsed_ms": round((time.monotonic()-tool_start)*1000)})
                     state["observations"].append({"tool": tool.name, "arguments": args.model_dump(), "observation": obs.model_dump()})
+                    if obs.status=='EMPTY' and tool.name in {'resolve_material','query_performance','get_material_daily_performance','get_material_status'}:
+                        message = '当前可查询范围内未找到该素材，请核对编号。' if tool.name=='resolve_material' else obs.data.get('message','当前可查询范围内没有相关记录，请核对查询条件。')
+                        self.store.emit(rid,'evaluation',{'step':actions,'next':'clarify','observation_status':'EMPTY'})
+                        return finish('COLLECTING',message,reason='EMPTY_BUSINESS_RESULT')
                     self.store.emit(rid, "evaluation", {"step": actions, "next": "decide", "observation_status": obs.status, "actions_remaining": self.settings.max_actions-actions})
         except TimeoutError:
             return finish("UNRESOLVED", "本轮处理超时，未生成未经核实的结果。", reason="TURN_TIMEOUT")

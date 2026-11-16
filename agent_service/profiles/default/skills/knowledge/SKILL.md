@@ -11,7 +11,7 @@ tools: [search_knowledge]
 
 ## 执行
 1. 保留原问题中的业务环节、指标与口径，调用search_knowledge。
-2. 仅依据命中条目回答，说明适用范围、版本和assumption；引用本轮evidence_refs。不把项目假设说成平台官方规则。
+2. 仅依据命中条目回答，用户答复仅解释业务规则及必要限制；版本、assumption和本轮evidence_refs只记录于轨迹。不把项目假设说成平台官方规则。
 3. 规则问题不强求素材/达人编号和日期；同名不同口径有歧义时再确认。
 
 ## Observation分支与输出

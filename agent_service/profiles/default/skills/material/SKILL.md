@@ -18,7 +18,7 @@ tools: [resolve_material, get_material_status, get_material_daily_performance]
 EMPTY：授权范围未找到时请核对编号，不透露范围外对象；区间无日报不等于零，不擅自改日期。PARTIAL：标明缺失天数、NULL及仅汇总已有记录。ERROR：不基于旧结果生成新数值。
 
 ## 输出合同
-对象、绝对日期、人民币元、已记录消耗/整体GMV/整体ROI、覆盖与来源、evidence_refs。使用工具算出的加权区间ROI，不平均每日ROI；NULL不填零。未来截止日被裁到今天后，还需说明data_through的最新日报日期，历史快照不能声称实时完整。
+对象、绝对日期、人民币元、已记录消耗/整体GMV/整体ROI、覆盖；来源与evidence_refs只记入轨迹。使用工具算出的加权区间ROI，不平均每日ROI；NULL不填零。未来截止日被裁到今天后，还需说明data_through的最新日报日期，历史快照不能声称实时完整。
 
 ## 多轮与验收
 日期补充及明确纠正仅替换对应槽位；新对象重新授权。“素材339，2026-03-24”查日报；“这个数不对”按diagnose复核；状态查询不强求日期。标题模糊匹配和平台ID转换不在现有工具能力内，不能虚构候选。

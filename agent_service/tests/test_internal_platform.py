@@ -131,3 +131,22 @@ def test_reset_identity_removes_context_and_resolution(tmp_path):
    with e.support.connect() as db:
     assert db.execute('SELECT count(*) FROM conversation_state').fetchone()[0]==0
  asyncio.run(check())
+
+
+def test_handoff_trace_explicit_conclusion(tmp_path):
+ e=build_engine(Settings(trace_db=tmp_path/'r.sqlite'))
+ r=ask(e,'人工')
+ policy=next(x['payload'] for x in e.store.events(r['request_id'],'u:B1') if x['type']=='handoff_policy')
+ assert not policy['allow'] and '不转人工' in policy['assessment']
+ ask(e,'人工');r=ask(e,'人工')
+ policy=next(x['payload'] for x in e.store.events(r['request_id'],'u:B1') if x['type']=='handoff_policy')
+ assert policy['allow'] and '允许转人工' in policy['assessment']
+
+
+def test_knowledge_dates_consolidated(tmp_path):
+ e=build_engine(Settings(trace_db=tmp_path/'r.sqlite'))
+ ids={r['id'] for r in e.business_tools.knowledge}
+ assert 'knowledge:relative-period:v1' in ids
+ assert not ids & {'knowledge:date:v1','knowledge:week:v1'}
+ obs=asyncio.run(e.business_tools.search(Search(question='最近7天怎么算'),Context('u','B1',(),'2026-11-16','s','guest')))
+ assert any(r['id']=='knowledge:relative-period:v1' for r in obs.data['entries'])

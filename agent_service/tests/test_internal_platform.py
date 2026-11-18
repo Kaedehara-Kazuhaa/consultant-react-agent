@@ -81,6 +81,31 @@ def test_preview_access_and_no_identity_fallback(tmp_path):
  asyncio.run(check())
 
 
+def test_previews_regular_remote_mode_and_both_test_roles(tmp_path):
+ async def check():
+  settings=Settings(trace_db=tmp_path/'remote.sqlite',api_token='test-token')
+  async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app(settings),client=('192.0.2.10',123)),base_url='http://example.test') as c:
+   for route,key in [('/api/resources','documents'),('/api/knowledge','entries')]:
+    assert (await c.get(route)).status_code==401
+    response=await c.get(route,headers={'Authorization':'Bearer test-token'})
+    assert response.status_code==200 and response.json()[key]
+  settings=Settings(trace_db=tmp_path/'roles.sqlite',test_mode=True,local_browser_auth=True)
+  async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app(settings),client=('127.0.0.1',123)),base_url='http://127.0.0.1') as c:
+   for role in ['guest','trader']:
+    token=(await c.post('/api/test/open',json={'role':role})).json()['token']
+    headers={'X-Test-Session':token}
+    docs=await c.get('/api/resources',headers=headers)
+    assert docs.status_code==200
+    assert all(row.get('content') for row in docs.json()['documents'])
+    kb=await c.get('/api/knowledge',headers=headers)
+    assert kb.status_code==200 and any(row['id']=='knowledge:gmv:v2' for row in kb.json()['entries'])
+    if role=='guest':
+     assert (await c.get('/api/materials',headers=headers)).json()['items']==[]
+     result=(await c.post('/api/run',headers=headers,json={'message':'查询素材M0001在2026-03-24的GMV','request_id':uuid4().hex,'session_id':'guest'})).json()
+     assert result['status']=='UNRESOLVED' and result['actions']==0
+ asyncio.run(check())
+
+
 def test_relative_calendar_periods():
  from ad_agent.conversation import resolve_turn
  for phrase,start in [('近半年','2026-05-17'),('最近30天','2026-10-18'),('近三个月','2026-08-17'),('近一年','2025-11-17')]:

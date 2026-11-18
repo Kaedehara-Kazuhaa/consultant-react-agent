@@ -152,8 +152,6 @@ def create_app(settings=None, engine=None):
     @app.get('/api/resources')
     async def resources(request:HTTPRequest,authorization:str|None=Header(default=None)):
         auth(authorization,request)
-        if not settings.test_mode or not local_browser(request):
-            raise HTTPException(403,'资源预览仅供本机内部测试')
         docs=[{'id':'agent','kind':'agent','name':'AGENTS.md','content':engine.profile.instructions,'version':engine.profile.digest}]
         docs += [{'id':'skill:'+s.name,'kind':'skill','name':s.name,'description':s.description,'tools':list(s.tools),'triggers':list(s.triggers),'content':s.body,'version':s.digest} for s in engine.profile.skills]
         docs += [{'id':'tool:'+t.name,'kind':'tool','name':t.name,'description':t.description,'content':json.dumps(t.schema(),ensure_ascii=False,indent=2)} for t in engine.tools.values()]
@@ -162,8 +160,6 @@ def create_app(settings=None, engine=None):
     @app.get('/api/knowledge')
     async def knowledge(request:HTTPRequest,q:str=Query(default='',max_length=200),authorization:str|None=Header(default=None)):
         auth(authorization,request)
-        if not settings.test_mode or not local_browser(request):
-            raise HTTPException(403,'知识库预览仅供本机内部测试')
         entries=[r for r in engine.business_tools.knowledge if not q or q.lower() in json.dumps(r,ensure_ascii=False).lower()]
         return {'entries':entries,'version':engine.knowledge_version,'total':len(entries)}
 
